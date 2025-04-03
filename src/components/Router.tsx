@@ -7,12 +7,8 @@ import Lectures from "../screen/Lecture";
 const router = createBrowserRouter([
     {
         path:"/",
-        element: <Root />,
+        element: <Main />,
         children: [
-            {
-              path: "",
-              element: <Main />,
-            },
             {
                 path:"lectures",
                 element: <Lectures />
