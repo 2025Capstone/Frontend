@@ -6,7 +6,7 @@ const Lectures = () => {
   return (
     <>
       <h1 style={{ fontSize: "40px", marginBottom: "100px" }}>
-        강의 목록 화면입니다
+        강의 목록 화면입니다.
       </h1>
       <h1
         style={{ fontSize: "40px" }}
