@@ -1,12 +1,16 @@
 import React from "react";
 import { createBrowserRouter } from "react-router-dom";
 import Root from "./Root";
-import Main from "../screen/student/Main";
-import Lectures from "../screen/student/Lectures";
+import StudentMain from "../screen/student/Main";
+import LecturerMain from "../screen/lecturer/Main";
+import StudentLectures from "../screen/student/Lectures";
+import LecturerLectures from "../screen/lecturer/Lectures";
 import Lecture from "../screen/student/Lecture";
 import Analysis from "../screen/student/Analysis";
 import Chat from "../screen/student/Chat";
-import Setting from "../screen/student/Setting";
+import StudentSetting from "../screen/student/Setting";
+import LecturerSetting from "../screen/lecturer/Setting";
+import Recording from "../screen/lecturer/Recording";
 
 const router = createBrowserRouter([
   {
@@ -16,11 +20,11 @@ const router = createBrowserRouter([
   {
     //학생용 화면
     path: "/student",
-    element: <Main />,
+    element: <StudentMain />,
     children: [
       {
         path: "lectures",
-        element: <Lectures />,
+        element: <StudentLectures />,
       },
       {
         path: "lecture",
@@ -36,9 +40,28 @@ const router = createBrowserRouter([
       },
       {
         path: "setting",
-        element: <Setting />
+        element: <StudentSetting />
       }
     ],
   },
+  {
+    // 교수자용 화면
+    path: "/lecturer",
+    element: <LecturerMain />,
+    children: [
+      {
+        path: "lectures",
+        element: <LecturerLectures/>
+      },
+      {
+        path: "recording",
+        element: <Recording />
+      },
+      {
+        path: "setting",
+        element: <LecturerSetting />
+      }
+    ]
+  }
 ]);
 export default router;
