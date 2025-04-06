@@ -10,7 +10,8 @@ import Analysis from "../screen/student/Analysis";
 import Chat from "../screen/student/Chat";
 import StudentSetting from "../screen/student/Setting";
 import LecturerSetting from "../screen/lecturer/Setting";
-import Recording from "../screen/lecturer/Recording";
+import RecordingList from "../screen/lecturer/RecordingList";
+import RecordingDetail from "../screen/lecturer/RecordingDetail";
 
 const router = createBrowserRouter([
   {
@@ -55,7 +56,16 @@ const router = createBrowserRouter([
       },
       {
         path: "recording",
-        element: <Recording />
+        children: [
+          {
+            index: true,
+            element: <RecordingList />
+          },
+          {
+            path: ":id",
+            element: <RecordingDetail />
+          }
+        ]
       },
       {
         path: "setting",
