@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import styled from "styled-components";
-import {createFFmpeg, fetchFile} from '@ffmpeg/ffmpeg';
+import { createFFmpeg, fetchFile } from "@ffmpeg/ffmpeg";
+import axios from "axios";
 
 // 스타일드 컴포넌트
 const Container = styled.div`
@@ -51,14 +52,14 @@ const Message = styled.p`
   color: #555;
 `;
 
-
 const RecordingDetail: React.FC = () => {
-  // URL 파라미터에서 강의 id를 추출 (타입은 string)
+  // URL 파라미터에서 강의 id를 추출 (타입은 string 또는 undefined)
   const { id } = useParams<{ id: string }>();
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [isEncoding, setIsEncoding] = useState<boolean>(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>("");
+  const [mp4Blob, setMp4Blob] = useState<Blob | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
@@ -72,8 +73,6 @@ const RecordingDetail: React.FC = () => {
     }
   };
 
-  
-
   // stream 상태 변경 시 video element에 연결
   useEffect(() => {
     if (videoRef.current && stream) {
@@ -84,6 +83,7 @@ const RecordingDetail: React.FC = () => {
   // 웹캠 활성화 및 녹화 시작
   const startRecording = async () => {
     setDownloadUrl(null);
+    setMp4Blob(null);
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: true,
@@ -109,26 +109,34 @@ const RecordingDetail: React.FC = () => {
         });
 
         try {
-          // ffmpeg 로드
+          // ffmpeg 로드 및 인코딩 시작
           setIsEncoding(true);
           await loadFFmpeg();
 
           ffmpeg.FS("writeFile", "input.webm", await fetchFile(webmBlob));
-
           await ffmpeg.run("-i", "input.webm", "-c:v", "libx264", "-c:a", "aac", "output.mp4");
 
           const data = ffmpeg.FS("readFile", "output.mp4");
 
-          const mp4Blob = new Blob([data.buffer as ArrayBuffer], { type: "video/mp4" });
-          const url = URL.createObjectURL(mp4Blob);
+          const convertedBlob = new Blob([data.buffer as ArrayBuffer], { type: "video/mp4" });
+          const url = URL.createObjectURL(convertedBlob);
           setDownloadUrl(url);
-          console.log(url);
+          setMp4Blob(convertedBlob);
+          console.log("변환된 파일 URL:", url);
+
+          // 변환 완료 후 강의 id가 유효하면 업로드 함수 호출
+          if (id) {
+            alert("업로드 시작!");
+            // 비동기에 따른 딜레이 처리 필요해보임!
+            await handleUpload(convertedBlob, id);
+          } else {
+            console.error("유효하지 않은 강의 ID입니다.");
+          }
         } catch (error) {
           console.error("mp4 변환 오류", error);
         } finally {
           setIsEncoding(false);
         }
-
       };
 
       mediaRecorder.start();
@@ -137,7 +145,28 @@ const RecordingDetail: React.FC = () => {
     }
   };
 
-  // 녹화 종료: 스트림 정지 및 업로드 API 호출(여기서는 콘솔로 시뮬레이션)
+  // 업로드 함수: 변환된 mp4 Blob과 강의 id를 받아 업로드 진행
+  const handleUpload = async (blob: Blob, lectureId: string) => {
+    const formData = new FormData();
+    formData.append("file", blob, `lecture-${lectureId}.mp4`);
+    formData.append("lecture_id", lectureId);
+    formData.append("title", `Lecture ${lectureId}`);
+
+    try {
+      const response = await axios.post("http://127.0.0.1:8000/videos/upload", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      console.log("업로드 성공!", response.data);
+      alert("업로드 성공");
+    } catch (error) {
+      console.error("업로드 실패!", error);
+      alert("업로드 실패");
+    }
+  };
+
+  // 녹화 종료: 스트림 정지; 업로드는 onstop에서 처리하므로 handleUpload 호출은 제거함
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
@@ -148,7 +177,7 @@ const RecordingDetail: React.FC = () => {
       setStream(null);
     }
     setIsRecording(false);
-    console.log("녹화 종료 및 영상 업로드 (시뮬레이션)");
+    console.log("녹화 종료; 변환 및 업로드 진행 중...");
   };
 
   return (
@@ -165,8 +194,8 @@ const RecordingDetail: React.FC = () => {
           {isEncoding && <Message>영상 인코딩 중...</Message>}
           {downloadUrl && (
             <DownloadLink href={downloadUrl} download={`lecture-${id}.mp4`}>
-            녹화 영상 다운로드
-          </DownloadLink>
+              녹화 영상 다운로드
+            </DownloadLink>
           )}
         </>
       )}
