@@ -12,11 +12,22 @@ import StudentSetting from "../screen/student/Setting";
 import LecturerSetting from "../screen/lecturer/Setting";
 import RecordingList from "../screen/lecturer/RecordingList";
 import RecordingDetail from "../screen/lecturer/RecordingDetail";
-
+import RegisterPage from "../screen/RegisterPage";
+import LoginPage from "../screen/LoginPage";
 const router = createBrowserRouter([
   {
     path: "/",
     element: <Root />,
+    children:[
+      {
+        path:"login",
+        element: <LoginPage />
+      },
+      {
+        path:"register",
+        element: <RegisterPage />
+      }
+    ]
   },
   {
     //학생용 화면
