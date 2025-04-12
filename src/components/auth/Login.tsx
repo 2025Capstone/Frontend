@@ -15,7 +15,7 @@ export default function Login() {
   // FastAPI 백엔드로 토큰을 전송하는 함수
   const sendTokenToBackend = async (token: string) => {
     // FastAPI 엔드포인트 URL을 실제 환경에 맞게 수정하세요.
-    const backendUrl = "http://localhost:8000/verify-token"; // 예시 URL
+    const backendUrl = "http://localhost:8000/api/v1/auth/verify-token"; // 예시 URL
 
     try {
       console.log("FastAPI 백엔드로 토큰 전송 시작:", token);
@@ -57,7 +57,7 @@ export default function Login() {
       setFirebaseToken(token);
 
       // 2. FastAPI 백엔드로 토큰 전송
-    //   await sendTokenToBackend(token);
+      await sendTokenToBackend(token);
 
     } catch (err: any) { // 타입 명시 (FirebaseError 등)
       console.error("Firebase 로그인 실패:", err);
