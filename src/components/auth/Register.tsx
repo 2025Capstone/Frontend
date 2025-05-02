@@ -19,7 +19,6 @@ const PageContainer = styled.div`
 
 const Header = styled.header`
   width: 100%;
-  max-width: 1200px; /* 콘텐츠 최대 너비 */
   display: flex;
   justify-content: space-between; /* 로고 왼쪽, 버튼 오른쪽 */
   align-items: center;

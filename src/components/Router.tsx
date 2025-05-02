@@ -58,7 +58,7 @@ const router = createBrowserRouter([
   },
   {
     // 교수자용 화면
-    path: "/lecturer",
+    path: "/instructor",
     element: <LecturerMain />,
     children: [
       {
