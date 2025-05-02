@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom"; // For redirection after login
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../../src/firebase"; // Firebase auth for student login
 import { useThemeStore } from "../../store"; // Assuming theme state is needed
+import { useAuthStore } from '../../authStore';
 
 // --- Reusable Styled Components (Can be imported from a shared file or defined here) ---
 // Using similar components as Register for consistency
@@ -206,6 +207,7 @@ export default function Login() {
   const handleShowPassword = () => setShowPassword(true);
   const handleHidePassword = () => setShowPassword(false);
 
+  const { setAuthState } = useAuthStore();
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
@@ -279,10 +281,12 @@ export default function Login() {
             throw new Error(verifyApiError);
           }
 
+          if (!verifyResponse.ok) { /* ... */ throw new Error(/* ... */); }
           console.log("Student Login and Token Verification Successful!");
-          // TODO: Store necessary student user data/token from verifyResponse if needed
-          // TODO: Redirect to student dashboard
-          navigate('/student/dashboard'); // Example redirect
+          // !!! 로그인 성공 시 상태 저장 !!!
+          setAuthState({ isAuthenticated: true, userRole: 'student', token: token });
+          navigate('/student/dashboard'); // 리디렉션
+
           break;
 
         case 'instructor':
@@ -307,11 +311,12 @@ export default function Login() {
             throw new Error(instructorApiError);
           }
 
+          if (!instructorLoginResponse.ok) { /* ... */ throw new Error(/* ... */); }
           const instructorData = await instructorLoginResponse.json();
           console.log("Instructor Login Successful:", instructorData);
-           // TODO: Store necessary instructor token/data (e.g., instructorData.access_token)
-           // TODO: Redirect to instructor dashboard
-          navigate('/instructor/courses'); // Example redirect
+          // !!! 로그인 성공 시 상태 저장 !!! (API 응답에서 토큰 필드 확인 필요)
+          setAuthState({ isAuthenticated: true, userRole: 'instructor', token: instructorData.access_token || instructorData.token });
+          navigate('/instructor/courses'); // 리디렉션
           break;
 
         case 'admin':
@@ -337,11 +342,12 @@ export default function Login() {
             throw new Error(adminApiError);
           }
 
+          if (!adminLoginResponse.ok) { /* ... */ throw new Error(/* ... */); }
           const adminData = await adminLoginResponse.json();
           console.log("Admin Login Successful:", adminData);
-           // TODO: Store necessary admin token/data
-           // TODO: Redirect to admin dashboard
-          navigate('/admin/user/student'); // Example redirect
+          // !!! 로그인 성공 시 상태 저장 !!! (API 응답에서 토큰 필드 확인 필요)
+          setAuthState({ isAuthenticated: true, userRole: 'admin', token: adminData.access_token || adminData.token });
+          navigate('/admin/user/student'); // 리디렉션
           break;
 
         case 'none':

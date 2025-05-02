@@ -6,9 +6,9 @@ export const darktheme: DefaultTheme = {
   backgroundColor: "#353b48",
   btnColor: "#7f8fa6",
   hoverBtnColor:"#718093",
-  formContainerColor: "#718093",
+  formContainerColor: "#2f3640",
 
-  navBackgroundColor:"#2f3640",
+  navBackgroundColor:"#1e272e",
   highlightColor:"#dcdde1",
 };
 
