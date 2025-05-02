@@ -2,16 +2,16 @@ import React from "react";
 import { createBrowserRouter } from "react-router-dom";
 import Root from "./Root";
 import StudentMain from "../screen/student/Main";
-import LecturerMain from "../screen/lecturer/Main";
+import LecturerMain from "../screen/instructor/Main";
 import StudentLectures from "../screen/student/Lectures";
-import LecturerLectures from "../screen/lecturer/Lectures";
+import LecturerLectures from "../screen/instructor/Lectures";
 import Lecture from "../screen/student/Lecture";
 import Analysis from "../screen/student/Analysis";
 import Chat from "../screen/student/Chat";
 import StudentSetting from "../screen/student/Setting";
-import LecturerSetting from "../screen/lecturer/Setting";
-import RecordingList from "../screen/lecturer/RecordingList";
-import RecordingDetail from "../screen/lecturer/RecordingDetail";
+import LecturerSetting from "../screen/instructor/Setting";
+import RecordingList from "../screen/instructor/RecordingList";
+import RecordingDetail from "../screen/instructor/RecordingDetail";
 import RegisterPage from "../screen/RegisterPage";
 import LoginPage from "../screen/LoginPage";
 const router = createBrowserRouter([
@@ -35,25 +35,17 @@ const router = createBrowserRouter([
     element: <StudentMain />,
     children: [
       {
-        path: "lectures",
+        path: "dashboard",
+        element: <>dashboard 구현 필요</>
+      },
+      {
+        path: "courses",
         element: <StudentLectures />,
       },
       {
-        path: "lecture",
-        element: <Lecture />,
-      },
-      {
-        path: "analysis",
+        path: "monitoring",
         element: <Analysis />
       },
-      {
-        path: "chat",
-        element: <Chat />
-      },
-      {
-        path: "setting",
-        element: <StudentSetting />
-      }
     ],
   },
   {
