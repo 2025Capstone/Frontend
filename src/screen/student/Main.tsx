@@ -8,8 +8,8 @@ import { useThemeStore } from "../../store"; // 경로 확인 필요
 const SidebarContainer = styled.nav`
   width: 18%;
   height: 100vh;
-  background-color: ${(props) => props.theme.navBackgroundColor || '#f8f9fa'};
-  color: ${(props)=>props.theme.subTextColor};
+  background-color: ${(props) => props.theme.navBackgroundColor};
+  color: ${(props) => props.theme.subTextColor};
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -24,7 +24,7 @@ const SidebarContainer = styled.nav`
 const SidebarTitle = styled.div`
   font-size: 1.5rem;
   font-weight: bold;
-  color: ${(props)=>props.theme.textColor};
+  color: ${(props) => props.theme.textColor};
   padding: 0 25px;
   margin-bottom: 50px;
   text-align: left;
@@ -50,13 +50,13 @@ const NavItem = styled.li<{ isActive: boolean }>`
   border-radius: 8px;
   font-size: 1rem;
   font-weight: 500;
-  color: ${(props)=>props.theme.subTextColor};
+  color: ${(props) => props.theme.subTextColor};
 
   ${(props) =>
     props.isActive &&
     css`
-      background-color: ${(props)=>props.theme.formContainerColor || '#e7f0ff'};
-      color: ${(props)=>props.theme.highlightColor || '#1f6feb'};
+      background-color: ${(props) => props.theme.formContainerColor};
+      color: ${(props) => props.theme.highlightColor};
       font-weight: 600;
     `}
 
@@ -64,8 +64,8 @@ const NavItem = styled.li<{ isActive: boolean }>`
     ${(props) =>
       !props.isActive &&
       css`
-        background-color: ${(props)=>props.theme.subTextColor}10;
-        color: ${(props)=>props.theme.highlightColor || '#1f6feb'};
+        background-color: ${(props) => props.theme.subTextColor}10;
+        color: ${(props) => props.theme.highlightColor};
       `}
   }
 `;
@@ -76,21 +76,57 @@ const Icon = styled.span`
   align-items: center;
 `;
 
+// 하단 영역: 설정 아이콘과 테마 토글 버튼 포함
 const SidebarFooter = styled.div`
-  margin-top: auto;
-  padding: 20px 25px; /* 좌우 패딩 일치 */
+  margin-top: auto; /* 상단 메뉴와 최대한 멀리 떨어짐 */
+  padding: 15px 15px 20px 15px; /* 패딩 조정 */
   display: flex;
-  justify-content: flex-start; /* 오른쪽 정렬로 변경 */
+  justify-content: flex-end; /* 양쪽 끝 정렬 */
+  align-items: center;
 `;
 
+// 하단 설정 아이콘 버튼 스타일 (NavItem과 유사하게)
+const SettingsButton = styled.div<{ isActive: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 15px; // 아이콘만 있을 경우 불필요할 수 있음
+  padding: 10px; // 패딩 조정
+  margin-left: 5px;
+  cursor: pointer;
+  border-radius: 50%;
+  color: ${(props) => props.theme.subTextColor};
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+
+  ${(props) =>
+    props.isActive &&
+    css`
+      background-color: ${(props) => props.theme.formContainerColor};
+      color: ${(props) => props.theme.highlightColor};
+    `}
+
+  &:hover {
+    ${(props) =>
+      !props.isActive &&
+      css`
+        background-color: ${(props) => props.theme.subTextColor}10;
+        color: ${(props) => props.theme.highlightColor};
+      `}
+  }
+
+  ${Icon} {
+    // 내부 Icon 컴포넌트 크기 조정 (선택 사항)
+    font-size: 26px;
+  }
+`;
+
+// 하단 테마 토글 버튼 스타일
 const ThemeToggleButtonBottom = styled.button`
   background: none;
   border: none;
   color: ${(props) => props.theme.subTextColor};
-  padding: 0.5rem;
-  border-radius:50%;
+  border-radius: 50%;
   cursor: pointer;
-  font-size: 2rem;
+  font-size: 26px;
   transition: background-color 0.2s, color 0.2s, border-color 0.2s;
   display: inline-flex;
   align-items: center;
@@ -108,7 +144,6 @@ const ThemeToggleButtonBottom = styled.button`
     color: ${(props) => props.theme.textColor};
   }
 `;
-
 
 const MainContent = styled.div`
   margin-left: 18%;
@@ -133,14 +168,22 @@ const Main = () => {
     { path: "/student/monitoring", icon: "monitoring", label: "Monitoring" },
   ];
 
+    // 설정 메뉴 활성 상태 확인
+    const settingsPath = "/student/setting";
+    const isSettingsActive =
+      location.pathname === settingsPath ||
+      location.pathname.startsWith(settingsPath + "/");
+
   return (
-    <div style={{ display: 'flex' }}>
+    <div style={{ display: "flex" }}>
       <SidebarContainer>
         <SidebarTitle>Project Title</SidebarTitle>
 
         <NavList>
           {navItems.map((item) => {
-            const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
+            const isActive =
+              location.pathname === item.path ||
+              location.pathname.startsWith(item.path + "/");
             return (
               <NavItem
                 key={item.path}
@@ -154,16 +197,26 @@ const Main = () => {
           })}
         </NavList>
 
+        {/* 하단 영역: 설정 아이콘과 테마 토글 버튼 */}
         <SidebarFooter>
-           <ThemeToggleButtonBottom onClick={toggleTheme} title="Toggle Theme">
-              {isDark ? (
-                <span className="material-symbols-outlined">light_mode</span>
-              ) : (
-                <span className="material-symbols-outlined">dark_mode</span>
-              )}
-            </ThemeToggleButtonBottom>
+          {/* 테마 토글 버튼 */}
+          <ThemeToggleButtonBottom onClick={toggleTheme} title="Toggle Theme">
+            {isDark ? (
+              <span className="material-symbols-outlined">light_mode</span>
+            ) : (
+              <span className="material-symbols-outlined">dark_mode</span>
+            )}
+          </ThemeToggleButtonBottom>
+          {/* 설정 아이콘 버튼 */}
+          <SettingsButton
+            isActive={isSettingsActive}
+            onClick={() => navigate(settingsPath)}
+            title="Settings"
+          >
+            <Icon className="material-symbols-outlined">settings</Icon>
+            {/* 필요시 텍스트 추가: <span>Settings</span> */}
+          </SettingsButton>
         </SidebarFooter>
-
       </SidebarContainer>
 
       <MainContent>

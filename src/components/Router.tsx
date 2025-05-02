@@ -17,10 +17,11 @@ import Analysis from "../screen/student/Monitoring";
 import StudentSetting from "../screen/student/Setting";
 
 //교수자 페이지
-import InstructorLectures from "../screen/instructor/Lectures";
+import InstructorCourses from "../screen/instructor/Lectures";
 import InstructorSetting from "../screen/instructor/Setting";
 import RecordingList from "../screen/instructor/RecordingList";
 import RecordingDetail from "../screen/instructor/RecordingDetail";
+
 
 //todo admin페이지 구현..
 
@@ -56,16 +57,20 @@ const router = createBrowserRouter([
         path: "monitoring",
         element: <Analysis />
       },
+      {
+        path: "setting",
+        element: <StudentSetting />
+      }
     ],
   },
   {
     // 교수자용 화면
     path: "/instructor",
     element: <LecturerMain />,
-    children: [
+    children: [ 
       {
-        path: "lectures",
-        element: <InstructorLectures/>
+        path: "courses",
+        element: <InstructorCourses/>
       },
       {
         path: "recording",

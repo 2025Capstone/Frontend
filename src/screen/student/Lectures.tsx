@@ -9,7 +9,7 @@ const Lectures = () => {
         강의 목록 화면입니다
       </h1>
       <h1
-        onClick={() => navigate("/student/lecture")}
+        onClick={() => navigate("/student/courses/lecture")}
         style={{ fontSize: "40px" }}
       >
         강의화면으로 이동
