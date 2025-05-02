@@ -1,122 +1,175 @@
 import React from "react";
-import styled from "styled-components";
-import { Outlet, useMatch, useNavigate } from "react-router-dom";
+import styled, { css } from "styled-components";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useThemeStore } from "../../store"; // 경로 확인 필요
+
+// --- Styled Components ---
 
 const SidebarContainer = styled.nav`
-  width: 11%;
+  width: 18%;
   height: 100vh;
-  background-color: #0d1b2a;
-  color: white;
+  background-color: ${(props) => props.theme.navBackgroundColor || '#f8f9fa'};
+  color: ${(props)=>props.theme.subTextColor};
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 20px 0;
+  align-items: stretch;
+  padding: 25px 0;
   position: fixed;
   top: 0;
   left: 0;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
+  transition: background-color 0.3s ease;
 `;
 
-const Logo = styled.span`
-  font-size: 60px;
+const SidebarTitle = styled.div`
+  font-size: 1.5rem;
   font-weight: bold;
-  margin-bottom: 80px;
+  color: ${(props)=>props.theme.textColor};
+  padding: 0 25px;
+  margin-bottom: 50px;
+  text-align: left;
 `;
 
 const NavList = styled.ul`
   list-style: none;
   padding: 0;
   width: 100%;
-`;
-
-const NavItem = styled.li`
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+`;
+
+const NavItem = styled.li<{ isActive: boolean }>`
+  display: flex;
   align-items: center;
-  margin: 40px 0;
+  gap: 15px;
+  padding: 15px 25px;
+  margin: 0 15px;
   cursor: pointer;
-  transition: color 0.3s;
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  color: ${(props)=>props.theme.subTextColor};
+
+  ${(props) =>
+    props.isActive &&
+    css`
+      background-color: ${(props)=>props.theme.formContainerColor || '#e7f0ff'};
+      color: ${(props)=>props.theme.highlightColor || '#1f6feb'};
+      font-weight: 600;
+    `}
 
   &:hover {
-    color: #1f6feb;
+    ${(props) =>
+      !props.isActive &&
+      css`
+        background-color: ${(props)=>props.theme.subTextColor}10;
+        color: ${(props)=>props.theme.highlightColor || '#1f6feb'};
+      `}
   }
 `;
 
-const Icon = styled.span<{ isActive: boolean }>`
-  font-size: 35px;
-  color: ${(props) => (props.isActive ? "#1f6feb" : "white")};
-  transition: color 0.3s;
-  &:hover {
-    color: #1f6feb;
-  }
+const Icon = styled.span`
+  font-size: 28px;
+  display: flex;
+  align-items: center;
 `;
 
-const BottomIcon = styled.div`
+const SidebarFooter = styled.div`
   margin-top: auto;
-  padding-bottom: 20px;
+  padding: 20px 25px; /* 좌우 패딩 일치 */
+  display: flex;
+  justify-content: flex-start; /* 오른쪽 정렬로 변경 */
 `;
+
+const ThemeToggleButtonBottom = styled.button`
+  background: none;
+  border: none;
+  color: ${(props) => props.theme.subTextColor};
+  padding: 0.5rem;
+  border-radius:50%;
+  cursor: pointer;
+  font-size: 2rem;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+
+  .material-symbols-outlined {
+    font-size: inherit;
+  }
+
+  &:hover {
+    background-color: ${(props) => props.theme.subTextColor}1A;
+    border-color: ${(props) => props.theme.textColor};
+    color: ${(props) => props.theme.textColor};
+  }
+`;
+
 
 const MainContent = styled.div`
-  margin-left: 11%;
-  width: 89%;
-  padding: 20px;
+  margin-left: 18%;
+  width: 82%;
+  padding: 30px;
+  background-color: ${(props) => props.theme.backgroundColor};
+  min-height: 100vh;
+  transition: background-color 0.3s ease;
 `;
+
+// --- Main Component ---
 
 const Main = () => {
   const navigate = useNavigate();
-  const lecturesdMatch = useMatch("/student/lectures");
-  const analysisdMatch = useMatch("/student/analysis");
-  const chatMatch = useMatch("/student/chat");
-  const settomgMatch = useMatch("/student/setting");
-  return (
-    <>
-      <SidebarContainer>
-        {/* 로고 */}
-        <Logo className="material-symbols-outlined">notifications_paused</Logo>
+  const location = useLocation();
+  const isDark = useThemeStore((state) => state.isDark);
+  const toggleTheme = useThemeStore((state) => state.toggleTheme);
 
-        {/* 메뉴 리스트 */}
+  const navItems = [
+    { path: "/student/dashboard", icon: "dashboard", label: "Dashboard" },
+    { path: "/student/courses", icon: "menu_book", label: "Courses" },
+    { path: "/student/monitoring", icon: "monitoring", label: "Monitoring" },
+  ];
+
+  return (
+    <div style={{ display: 'flex' }}>
+      <SidebarContainer>
+        <SidebarTitle>Project Title</SidebarTitle>
+
         <NavList>
-          <NavItem onClick={() => navigate("/student/lectures")}>
-            <Icon
-              isActive={lecturesdMatch != null}
-              className="material-symbols-outlined"
-            >
-              menu_book
-            </Icon>
-          </NavItem>
-          <NavItem onClick={() => navigate("/student/analysis")}>
-            <Icon
-              isActive={analysisdMatch != null}
-              className="material-symbols-outlined"
-            >
-              query_stats
-            </Icon>
-          </NavItem>
-          <NavItem onClick={() => navigate("/student/chat")}>
-            <Icon
-              isActive={chatMatch != null}
-              className="material-symbols-outlined"
-            >
-              chat
-            </Icon>
-          </NavItem>
+          {navItems.map((item) => {
+            const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
+            return (
+              <NavItem
+                key={item.path}
+                isActive={isActive}
+                onClick={() => navigate(item.path)}
+              >
+                <Icon className="material-symbols-outlined">{item.icon}</Icon>
+                <span>{item.label}</span>
+              </NavItem>
+            );
+          })}
         </NavList>
 
-        {/* 하단 아이콘 */}
-        <BottomIcon onClick={() => navigate("/student/setting")}>
-          <Icon
-            isActive={settomgMatch != null}
-            className="material-symbols-outlined"
-          >
-            settings
-          </Icon>
-        </BottomIcon>
+        <SidebarFooter>
+           <ThemeToggleButtonBottom onClick={toggleTheme} title="Toggle Theme">
+              {isDark ? (
+                <span className="material-symbols-outlined">light_mode</span>
+              ) : (
+                <span className="material-symbols-outlined">dark_mode</span>
+              )}
+            </ThemeToggleButtonBottom>
+        </SidebarFooter>
+
       </SidebarContainer>
 
-      {/* 메인 컨텐츠 */}
       <MainContent>
         <Outlet />
       </MainContent>
-    </>
+    </div>
   );
 };
 

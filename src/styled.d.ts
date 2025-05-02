@@ -9,5 +9,7 @@ declare module "styled-components" {
     btnColor: string;
     hoverBtnColor: string;
     formContainerColor: string;
+    navBackgroundColor:string;
+    highlightColor:string;
   }
 }
