@@ -1,19 +1,29 @@
 import React from "react";
 import { createBrowserRouter } from "react-router-dom";
 import Root from "./Root";
-import StudentMain from "../screen/student/Main";
-import LecturerMain from "../screen/instructor/Main";
-import StudentLectures from "../screen/student/Lectures";
-import LecturerLectures from "../screen/instructor/Lectures";
-import Lecture from "../screen/student/Lecture";
-import Analysis from "../screen/student/Analysis";
-import Chat from "../screen/student/Chat";
-import StudentSetting from "../screen/student/Setting";
-import LecturerSetting from "../screen/instructor/Setting";
-import RecordingList from "../screen/instructor/RecordingList";
-import RecordingDetail from "../screen/instructor/RecordingDetail";
+
+//인증
 import RegisterPage from "../screen/RegisterPage";
 import LoginPage from "../screen/LoginPage";
+
+//메인(Nav)
+import StudentMain from "../screen/student/Main";
+import LecturerMain from "../screen/instructor/Main";
+
+//학생 페이지
+import StudentDashBoard from "../screen/student/Dashboard"
+import StudentLectures from "../screen/student/Lectures";
+import Analysis from "../screen/student/Monitoring";
+import StudentSetting from "../screen/student/Setting";
+
+//교수자 페이지
+import InstructorLectures from "../screen/instructor/Lectures";
+import InstructorSetting from "../screen/instructor/Setting";
+import RecordingList from "../screen/instructor/RecordingList";
+import RecordingDetail from "../screen/instructor/RecordingDetail";
+
+//todo admin페이지 구현..
+
 const router = createBrowserRouter([
   {
     path: "/",
@@ -36,7 +46,7 @@ const router = createBrowserRouter([
     children: [
       {
         path: "dashboard",
-        element: <>dashboard 구현 필요</>
+        element: <StudentDashBoard />
       },
       {
         path: "courses",
@@ -55,7 +65,7 @@ const router = createBrowserRouter([
     children: [
       {
         path: "lectures",
-        element: <LecturerLectures/>
+        element: <InstructorLectures/>
       },
       {
         path: "recording",
@@ -72,7 +82,7 @@ const router = createBrowserRouter([
       },
       {
         path: "setting",
-        element: <LecturerSetting />
+        element: <InstructorSetting />
       }
     ]
   }
