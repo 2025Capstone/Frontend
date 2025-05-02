@@ -18,7 +18,7 @@ const SidebarContainer = styled.nav`
   top: 0;
   left: 0;
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
-  transition: background-color 0.3s ease;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 `;
 
 const SidebarTitle = styled.div`
@@ -39,6 +39,7 @@ const NavList = styled.ul`
   gap: 10px;
 `;
 
+// NavItem 스타일: 활성/호버 상태 포함
 const NavItem = styled.li<{ isActive: boolean }>`
   display: flex;
   align-items: center;
@@ -90,8 +91,8 @@ const SettingsButton = styled.div<{ isActive: boolean }>`
   display: flex;
   align-items: center;
   gap: 15px; // 아이콘만 있을 경우 불필요할 수 있음
-  padding: 10px; // 패딩 조정
   margin-left: 5px;
+  padding: 10px; // 패딩 조정
   cursor: pointer;
   border-radius: 50%;
   color: ${(props) => props.theme.subTextColor};
@@ -154,7 +155,7 @@ const MainContent = styled.div`
   transition: background-color 0.3s ease;
 `;
 
-// --- Main Component ---
+// --- Main Component (Lecturer) ---
 
 const Main = () => {
   const navigate = useNavigate();
@@ -162,21 +163,22 @@ const Main = () => {
   const isDark = useThemeStore((state) => state.isDark);
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
 
+  // 강의자 메뉴 항목
   const navItems = [
-    { path: "/student/dashboard", icon: "dashboard", label: "Dashboard" },
-    { path: "/student/courses", icon: "menu_book", label: "Courses" },
-    { path: "/student/monitoring", icon: "monitoring", label: "Monitoring" },
+    { path: "/instructor/courses", icon: "menu_book", label: "Courses" },
+    { path: "/instructor/recording", icon: "videocam", label: "Recording" },
   ];
 
-    // 설정 메뉴 활성 상태 확인
-    const settingsPath = "/student/setting";
-    const isSettingsActive =
-      location.pathname === settingsPath ||
-      location.pathname.startsWith(settingsPath + "/");
+  // 설정 메뉴 활성 상태 확인
+  const settingsPath = "/instructor/setting";
+  const isSettingsActive =
+    location.pathname === settingsPath ||
+    location.pathname.startsWith(settingsPath + "/");
 
   return (
     <div style={{ display: "flex" }}>
       <SidebarContainer>
+        {/* 프로젝트 타이틀 (기존 Logo 대체) */}
         <SidebarTitle>Project Title</SidebarTitle>
 
         <NavList>

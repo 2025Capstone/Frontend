@@ -1,19 +1,30 @@
 import React from "react";
 import { createBrowserRouter } from "react-router-dom";
 import Root from "./Root";
-import StudentMain from "../screen/student/Main";
-import LecturerMain from "../screen/lecturer/Main";
-import StudentLectures from "../screen/student/Lectures";
-import LecturerLectures from "../screen/lecturer/Lectures";
-import Lecture from "../screen/student/Lecture";
-import Analysis from "../screen/student/Analysis";
-import Chat from "../screen/student/Chat";
-import StudentSetting from "../screen/student/Setting";
-import LecturerSetting from "../screen/lecturer/Setting";
-import RecordingList from "../screen/lecturer/RecordingList";
-import RecordingDetail from "../screen/lecturer/RecordingDetail";
+
+//인증
 import RegisterPage from "../screen/RegisterPage";
 import LoginPage from "../screen/LoginPage";
+
+//메인(Nav)
+import StudentMain from "../screen/student/Main";
+import LecturerMain from "../screen/instructor/Main";
+
+//학생 페이지
+import StudentDashBoard from "../screen/student/Dashboard"
+import StudentLectures from "../screen/student/Lectures";
+import Analysis from "../screen/student/Monitoring";
+import StudentSetting from "../screen/student/Setting";
+
+//교수자 페이지
+import InstructorCourses from "../screen/instructor/Lectures";
+import InstructorSetting from "../screen/instructor/Setting";
+import RecordingList from "../screen/instructor/RecordingList";
+import RecordingDetail from "../screen/instructor/RecordingDetail";
+
+
+//todo admin페이지 구현..
+
 const router = createBrowserRouter([
   {
     path: "/",
@@ -35,20 +46,16 @@ const router = createBrowserRouter([
     element: <StudentMain />,
     children: [
       {
-        path: "lectures",
+        path: "dashboard",
+        element: <StudentDashBoard />
+      },
+      {
+        path: "courses",
         element: <StudentLectures />,
       },
       {
-        path: "lecture",
-        element: <Lecture />,
-      },
-      {
-        path: "analysis",
+        path: "monitoring",
         element: <Analysis />
-      },
-      {
-        path: "chat",
-        element: <Chat />
       },
       {
         path: "setting",
@@ -58,12 +65,12 @@ const router = createBrowserRouter([
   },
   {
     // 교수자용 화면
-    path: "/lecturer",
+    path: "/instructor",
     element: <LecturerMain />,
-    children: [
+    children: [ 
       {
-        path: "lectures",
-        element: <LecturerLectures/>
+        path: "courses",
+        element: <InstructorCourses/>
       },
       {
         path: "recording",
@@ -80,7 +87,7 @@ const router = createBrowserRouter([
       },
       {
         path: "setting",
-        element: <LecturerSetting />
+        element: <InstructorSetting />
       }
     ]
   }

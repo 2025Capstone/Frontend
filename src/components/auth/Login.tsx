@@ -1,117 +1,443 @@
-// src/components/Login.tsx
-import { auth } from "../../../src/firebase";
+import React, { useState } from "react";
+import styled from "styled-components";
+import { useNavigate } from "react-router-dom"; // For redirection after login
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { useState } from "react";
-import { QRCodeCanvas } from "qrcode.react"; // QR 코드 라이브러리 import
-import axios from 'axios'; // 백엔드 통신을 위한 axios import (fetch 사용 가능)
+import { auth } from "../../../src/firebase"; // Firebase auth for student login
+import { useThemeStore } from "../../store"; // Assuming theme state is needed
+
+// --- Reusable Styled Components (Can be imported from a shared file or defined here) ---
+// Using similar components as Register for consistency
+const PageContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 100vh;
+  background-color: ${(props) => props.theme.backgroundColor};
+  padding: 0 1rem;
+  font-family: "Source Sans Pro", sans-serif;
+  transition: background-color 0.3s ease;
+`;
+
+const Header = styled.header`
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 1rem;
+  color: ${(props) => props.theme.textColor};
+  flex-shrink: 0;
+`;
+
+const ProjectTitle = styled.div`
+  font-weight: bold;
+  font-size: 1.2rem;
+`;
+
+const ThemeToggleButton = styled.button`
+  background: none;
+  border: none;
+  color: ${(props) => props.theme.textColor};
+  padding: 0.4rem 0.8rem;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: background-color 0.2s, color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  .material-symbols-outlined { font-size: 1.4rem; }
+  &:hover { background-color: ${(props) => props.theme.textColor}1A; }
+`;
+
+const MainContent = styled.main`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4rem;
+  width: 100%;
+  max-width: 900px; /* Adjust if illustration is used */
+  flex-grow: 1;
+  padding: 2rem 0;
+`;
+
+const FormContainer = styled.div`
+  background-color: ${(props) => props.theme.formContainerColor};
+  padding: 2.5rem 3rem;
+  border-radius: 20px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  width: 100%;
+  max-width: 450px;
+  transition: background-color 0.3s ease;
+   @media (max-width: 768px) {
+    padding: 2rem 1.5rem;
+    max-width: 100%;
+  }
+`;
+
+const StyledForm = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+`;
+
+const Title = styled.h2`
+  text-align: center;
+  font-size: 2rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem; /* More space below title */
+  color: ${(props) => props.theme.textColor};
+`;
+
+const InputGroup = styled.div`
+  position: relative;
+`;
+
+const StyledInput = styled.input`
+  width: 100%;
+  padding: 0.9rem 1rem;
+  border: 1px solid #dcdcdc;
+  border-radius: 8px;
+  font-size: 1rem;
+  background-color: ${(props) => props.theme.backgroundColor || 'white'}; // Ensure theme has inputBackgroundColor
+  color: ${(props) => props.theme.textColor};
+  transition: border-color 0.2s ease-in-out, background-color 0.3s ease, color 0.3s ease;
+  &::placeholder { color: ${(props) => props.theme.subTextColor}; }
+  &:focus {
+    outline: none;
+    border-color: ${(props) => props.theme.btnColor};
+    box-shadow: 0 0 0 2px ${(props) => props.theme.btnColor}4D;
+  }
+`;
+
+const PasswordInputGroup = styled(InputGroup)`/* Inherits InputGroup */`;
+
+const ToggleButton = styled.button`
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: ${(props) => props.theme.subTextColor};
+  padding: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  .material-symbols-outlined { font-size: 1.2rem; }
+`;
+
+const MessageArea = styled.div`
+  min-height: 1.2em;
+  text-align: center;
+  margin-top: 0.5rem; /* Space above message */
+  margin-bottom: 0.5rem;
+`;
+
+const ErrorMessage = styled.p`
+  color: #e74c3c;
+  font-size: 0.85rem;
+`;
+
+const SubmitButton = styled.button`
+  width: 100%;
+  padding: 0.9rem;
+  background-color: ${(props) => props.theme.btnColor};
+  color: #333;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 1.5rem; /* More space above button */
+  transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  &:hover:not(:disabled) {
+    background-color: ${(props) => props.theme.hoverBtnColor}; // Ensure theme has hoverBtnColor
+    box-shadow: 0 4px 10px ${(props) => props.theme.btnColor}66;
+  }
+  &:disabled {
+    background-color: #cccccc;
+    color: #666666;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+`;
+
+const LinkText = styled.p` // Renamed from SignInLinkText for generic use
+  text-align: center;
+  font-size: 0.9rem;
+  margin-top: 1.5rem;
+  color: ${(props) => props.theme.subTextColor};
+`;
+
+const StyledLink = styled.a` // Renamed from SignInLink
+  color: ${(props) => props.theme.btnColor};
+  font-weight: 600;
+  text-decoration: none;
+  margin-left: 0.3rem;
+  &:hover { text-decoration: underline; }
+`;
+
+const Footer = styled.footer`
+  width: 100%;
+  max-width: 1200px;
+  text-align: center;
+  padding: 1.5rem 1rem;
+  color: ${(props) => props.theme.subTextColor};
+  flex-shrink: 0;
+`;
+// --- Styled Components Definitions End ---
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
-  const [firebaseToken, setFirebaseToken] = useState<string | null>(null); // Firebase ID 토큰 상태
-  const [isLoading, setIsLoading] = useState(false); // 로딩 상태 추가
-  const [error, setError] = useState<string | null>(null); // 에러 메시지 상태 추가
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate(); // Hook for navigation
 
-  // FastAPI 백엔드로 토큰을 전송하는 함수
-  const sendTokenToBackend = async (token: string) => {
-    // FastAPI 엔드포인트 URL을 실제 환경에 맞게 수정하세요.
-    const backendUrl = "http://localhost:8000/api/v1/auth/verify-token"; // 예시 URL
+  // Theme state (if needed for logic, otherwise only ThemeProvider is needed)
+  const isDark = useThemeStore((state) => state.isDark);
+  const toggleTheme = useThemeStore((state) => state.toggleTheme);
 
-    try {
-      console.log("FastAPI 백엔드로 토큰 전송 시작:", token);
-      // 헤더에 Bearer 토큰 형태로 전송하거나, body에 담아 전송할 수 있습니다.
-      // FastAPI 구현 방식에 맞춰주세요. 여기서는 Authorization 헤더 사용 예시
-      const response = await axios.post(
-        backendUrl,
-        {}, // FastAPI에서 body를 요구하지 않으면 빈 객체 전달
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json', // 필요시 설정
-          },
-        }
-      );
+  const handleShowPassword = () => setShowPassword(true);
+  const handleHidePassword = () => setShowPassword(false);
 
-      console.log("백엔드 응답:", response.data);
-      // 백엔드로부터 받은 추가 데이터 처리 (예: 사용자 정보 업데이트 등)
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
-    } catch (err) {
-      console.error("백엔드 토큰 전송 실패:", err);
-      setError("백엔드 처리 중 오류가 발생했습니다.");
-      // 백엔드 통신 실패 시 QR 코드를 숨기거나 다른 처리를 할 수 있습니다.
-      setFirebaseToken(null); // 예: 실패 시 QR 코드 숨김
+    // Basic validation
+    if (!email || !pw) {
+      setError("이메일과 비밀번호를 모두 입력해주세요.");
+      setLoading(false);
+      return;
     }
-  };
-
-  const handleLogin = async () => {
-    setIsLoading(true); // 로딩 시작
-    setError(null); // 이전 에러 초기화
-    setFirebaseToken(null); // 이전 토큰/QR 코드 초기화
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, pw);
-      const token = await userCredential.user.getIdToken();
-      console.log("Firebase 로그인 성공, ID Token:", token);
+      // 1. Get User Role
+      const roleResponse = await fetch('http://127.0.0.1:8000/api/v1/auth/user-role', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: email }),
+      });
 
-      // 1. 상태에 토큰 저장 (QR 코드 생성을 위해)
-      setFirebaseToken(token);
+      if (!roleResponse.ok) {
+         // Try to get error details from role API
+         let roleApiError = '사용자 역할 확인 중 오류 발생';
+         try {
+             const errorData = await roleResponse.json();
+             roleApiError = errorData.detail || JSON.stringify(errorData);
+         } catch (jsonError) {
+             roleApiError = `HTTP Error ${roleResponse.status}: ${roleResponse.statusText}`;
+         }
+         throw new Error(roleApiError);
+      }
 
-      // 2. FastAPI 백엔드로 토큰 전송
-      await sendTokenToBackend(token);
+      const roleData = await roleResponse.json();
+      const userRole = roleData.role || 'none'; // Adjust based on actual API response structure
 
-    } catch (err: any) { // 타입 명시 (FirebaseError 등)
-      console.error("Firebase 로그인 실패:", err);
-      // Firebase 에러 코드에 따라 구체적인 메시지 표시 가능
-      setError(`로그인 실패: ${err.message || '알 수 없는 오류'}`);
-      setFirebaseToken(null); // 실패 시 토큰 상태 초기화
+      console.log("User Role:", userRole); // Log the role
+
+      // 2. Role-Specific Login Logic
+      switch (userRole) {
+        case 'student':
+          console.log("Attempting Student Login via Firebase...");
+          // Firebase Login
+          const userCredential = await signInWithEmailAndPassword(auth, email, pw);
+          console.log("Firebase Login Success:", userCredential.user.uid);
+
+          // Get Firebase ID Token
+          const token = await userCredential.user.getIdToken();
+          console.log("Firebase ID Token obtained.");
+
+          // Verify Token with Backend
+          const verifyResponse = await fetch('http://127.0.0.1:8000/api/v1/auth/verify-token', {
+            method: 'POST',
+            headers: {
+              'accept': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+             // No body needed according to curl example
+          });
+
+          if (!verifyResponse.ok) {
+             let verifyApiError = '토큰 인증 실패';
+             try {
+                 const errorData = await verifyResponse.json();
+                 verifyApiError = errorData.detail || JSON.stringify(errorData);
+             } catch (jsonError) {
+                 verifyApiError = `HTTP Error ${verifyResponse.status}: ${verifyResponse.statusText}`;
+             }
+            throw new Error(verifyApiError);
+          }
+
+          console.log("Student Login and Token Verification Successful!");
+          // TODO: Store necessary student user data/token from verifyResponse if needed
+          // TODO: Redirect to student dashboard
+          navigate('/student/dashboard'); // Example redirect
+          break;
+
+        case 'instructor':
+          console.log("Attempting Instructor Login via API...");
+          const instructorLoginResponse = await fetch('http://127.0.0.1:8000/api/v1/instructors-auth/login', {
+            method: 'POST',
+            headers: {
+              'accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email: email, password: pw }),
+          });
+
+          if (!instructorLoginResponse.ok) {
+             let instructorApiError = '강의자 로그인 실패';
+             try {
+                 const errorData = await instructorLoginResponse.json();
+                 instructorApiError = errorData.detail || JSON.stringify(errorData);
+             } catch (jsonError) {
+                  instructorApiError = `HTTP Error ${instructorLoginResponse.status}: ${instructorLoginResponse.statusText}`;
+             }
+            throw new Error(instructorApiError);
+          }
+
+          const instructorData = await instructorLoginResponse.json();
+          console.log("Instructor Login Successful:", instructorData);
+           // TODO: Store necessary instructor token/data (e.g., instructorData.access_token)
+           // TODO: Redirect to instructor dashboard
+          navigate('/instructor/courses'); // Example redirect
+          break;
+
+        case 'admin':
+          console.log("Attempting Admin Login via API...");
+           const adminLoginResponse = await fetch('http://127.0.0.1:8000/api/v1/auth/admin-login', {
+            method: 'POST',
+            headers: {
+              'accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+            // Using email as username as implied
+            body: JSON.stringify({ username: email, password: pw }),
+          });
+
+           if (!adminLoginResponse.ok) {
+             let adminApiError = '관리자 로그인 실패';
+             try {
+                 const errorData = await adminLoginResponse.json();
+                 adminApiError = errorData.detail || JSON.stringify(errorData);
+             } catch (jsonError) {
+                 adminApiError = `HTTP Error ${adminLoginResponse.status}: ${adminLoginResponse.statusText}`;
+             }
+            throw new Error(adminApiError);
+          }
+
+          const adminData = await adminLoginResponse.json();
+          console.log("Admin Login Successful:", adminData);
+           // TODO: Store necessary admin token/data
+           // TODO: Redirect to admin dashboard
+          navigate('/admin/user/student'); // Example redirect
+          break;
+
+        case 'none':
+        default:
+          setError("등록되지 않은 사용자이거나 역할 정보가 없습니다.");
+          break;
+      }
+
+    } catch (err: any) {
+      console.error("Login process failed:", err);
+      // Firebase errors might have a 'code' property
+      if (err.code) {
+        switch (err.code) {
+            case 'auth/user-not-found':
+            case 'auth/wrong-password':
+            case 'auth/invalid-credential': // Common Firebase login error code
+                setError("이메일 또는 비밀번호가 잘못되었습니다.");
+                break;
+            case 'auth/invalid-email':
+                setError("유효하지 않은 이메일 형식입니다.");
+                break;
+            // Add other Firebase specific error codes if needed
+            default:
+                setError(err.message || "로그인 중 오류가 발생했습니다.");
+        }
+      } else {
+         // API or other errors
+         setError(err.message || "로그인 처리 중 오류가 발생했습니다.");
+      }
     } finally {
-      setIsLoading(false); // 로딩 종료
+      setLoading(false);
     }
   };
 
   return (
-    <div>
-      <h2>로그인</h2>
-      <div>
-        <input
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="이메일"
-          type="email" // 타입 명시
-          disabled={isLoading} // 로딩 중 비활성화
-        />
-      </div>
-      <div>
-        <input
-          value={pw}
-          onChange={(e) => setPw(e.target.value)}
-          placeholder="비밀번호"
-          type="password"
-          disabled={isLoading} // 로딩 중 비활성화
-        />
-      </div>
-      <button onClick={handleLogin} disabled={isLoading}>
-        {isLoading ? "로그인 중..." : "로그인"}
-      </button>
+    <PageContainer>
+      <Header>
+        <ProjectTitle>Project Title</ProjectTitle>
+        <ThemeToggleButton onClick={toggleTheme}>
+          {isDark ? ( <span className="material-symbols-outlined">light_mode</span> )
+                 : ( <span className="material-symbols-outlined">dark_mode</span> )}
+        </ThemeToggleButton>
+      </Header>
 
-      {/* 에러 메시지 표시 */}
-      {error && <p style={{ color: "red" }}>{error}</p>}
+      <MainContent>
+        <FormContainer>
+          <StyledForm onSubmit={handleSubmit}>
+            <Title>Login</Title>
 
-      {/* 로그인 성공 및 토큰 수신 시 QR 코드 표시 */}
-      {firebaseToken && !isLoading && !error && ( // 로딩 중이 아니고 에러가 없을 때만 표시
-        <div style={{ marginTop: "20px" }}>
-          <h3>웨어러블 기기 로그인</h3>
-          <p>아래 QR 코드를 웨어러블 기기로 스캔하여 로그인하세요.</p>
-          <QRCodeCanvas
-            value={firebaseToken} // QR 코드에 Firebase ID 토큰 포함
-            size={256} // QR 코드 크기 조절
-            level={"H"} // 에러 복원 레벨 (L, M, Q, H)
-            includeMargin={true} // 여백 포함 여부
-          />
-          {/* <p style={{ wordBreak: 'break-all', marginTop: '10px', maxWidth: '256px' }}>토큰: {firebaseToken}</p> */}
-          {/* 토큰 직접 표시는 보안상 좋지 않을 수 있으므로 주석 처리 */}
-        </div>
-      )}
-    </div>
+            <InputGroup>
+              <StyledInput
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter Email"
+                required
+              />
+            </InputGroup>
+
+            <PasswordInputGroup>
+              <StyledInput
+                value={pw}
+                onChange={(e) => setPw(e.target.value)}
+                placeholder="Enter Password"
+                type={showPassword ? "text" : "password"}
+                required
+              />
+              <ToggleButton
+                type="button"
+                onMouseDown={handleShowPassword}
+                onMouseUp={handleHidePassword}
+                onMouseLeave={handleHidePassword}
+                onTouchStart={handleShowPassword}
+                onTouchEnd={handleHidePassword}
+                disabled={loading}
+              >
+                <span className="material-symbols-outlined">visibility</span>
+              </ToggleButton>
+            </PasswordInputGroup>
+
+            <MessageArea>
+              {error && <ErrorMessage>{error}</ErrorMessage>}
+              {!error && '\u00A0'}
+            </MessageArea>
+
+            <SubmitButton type="submit" disabled={loading}>
+              {loading ? 'Logging in...' : 'Login'}
+            </SubmitButton>
+            <LinkText>
+              Don't have an account?
+              <StyledLink href="/register">Sign Up</StyledLink>
+            </LinkText>
+
+          </StyledForm>
+        </FormContainer>
+      </MainContent>
+    </PageContainer>
   );
 }

@@ -6,7 +6,10 @@ export const darktheme: DefaultTheme = {
   backgroundColor: "#353b48",
   btnColor: "#7f8fa6",
   hoverBtnColor:"#718093",
-  formContainerColor: "#2f3640",
+  formContainerColor: "#718093",
+
+  navBackgroundColor:"#2f3640",
+  highlightColor:"#dcdde1",
 };
 
 export const lighttheme: DefaultTheme = {
@@ -16,5 +19,8 @@ export const lighttheme: DefaultTheme = {
   btnColor: "#FDC886",
   hoverBtnColor:"#fcae5a",
   formContainerColor: "#FFFFFF",
+
+  navBackgroundColor:"#F6F0E0",
+  highlightColor:"#FFBC5D",
 };
  
