@@ -7,5 +7,7 @@ declare module "styled-components" {
     subTextColor: string;
     backgroundColor: string;
     btnColor: string;
+    hoverBtnColor: string;
+    formContainerColor: string;
   }
 }
