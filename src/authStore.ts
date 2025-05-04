@@ -1,40 +1,45 @@
+// src/store/authStore.ts (수정)
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware'; // 로컬/세션 스토리지 연동 (선택 사항)
+import { persist } from 'zustand/middleware';
 
-// 사용자 역할 타입 정의 (null 포함)
 export type UserRole = 'student' | 'instructor' | 'admin' | null;
 
 interface AuthState {
   isAuthenticated: boolean;
   userRole: UserRole;
-  token: string | null; // Firebase 또는 API 토큰 저장
-  setAuthState: (data: { isAuthenticated: boolean; userRole: UserRole; token: string | null }) => void;
+  accessToken: string | null; // 백엔드 JWT Access Token
+  refreshToken: string | null; // 백엔드 JWT Refresh Token
+  // 토큰만 업데이트하는 액션 (토큰 갱신 시 사용)
+  setTokens: (tokens: { accessToken: string | null; refreshToken: string | null }) => void;
+  // 전체 인증 정보 설정 액션 (로그인 시 사용)
+  setAuthInfo: (data: { isAuthenticated: boolean; userRole: UserRole; accessToken: string | null; refreshToken: string | null }) => void;
   logout: () => void;
 }
 
-// persist 미들웨어 사용 예시 (localStorage에 저장)
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       isAuthenticated: false,
       userRole: null,
-      token: null,
-      setAuthState: (data) => set({
+      accessToken: null,
+      refreshToken: null,
+      setTokens: (tokens) => set({
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+      }),
+      setAuthInfo: (data) => set({
         isAuthenticated: data.isAuthenticated,
         userRole: data.userRole,
-        token: data.token,
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
       }),
       logout: () => {
-        // TODO: 필요시 Firebase 로그아웃 추가
-        // import { signOut } from "firebase/auth";
-        // import { auth } from "../firebase"; // 경로 주의
-        // signOut(auth).catch(error => console.error("Firebase signout error:", error));
-        set({ isAuthenticated: false, userRole: null, token: null });
-        // TODO: 로그아웃 후 로그인 페이지로 이동 로직 추가 (컴포넌트 내에서 navigate 사용 권장)
+        // TODO: 필요시 Firebase 로그아웃
+        set({ isAuthenticated: false, userRole: null, accessToken: null, refreshToken: null });
       },
     }),
     {
-      name: 'auth-storage', // localStorage에 저장될 때 사용될 키 이름
+      name: 'auth-storage', // 스토리지 키 이름
     }
   )
 );
