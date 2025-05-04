@@ -207,7 +207,7 @@ export default function Login() {
   const handleShowPassword = () => setShowPassword(true);
   const handleHidePassword = () => setShowPassword(false);
 
-  const { setAuthState } = useAuthStore();
+  const { setAuthInfo } = useAuthStore(); // setAuthInfo 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
@@ -252,108 +252,127 @@ export default function Login() {
       switch (userRole) {
         case 'student':
           console.log("Attempting Student Login via Firebase...");
-          // Firebase Login
           const userCredential = await signInWithEmailAndPassword(auth, email, pw);
           console.log("Firebase Login Success:", userCredential.user.uid);
-
-          // Get Firebase ID Token
-          const token = await userCredential.user.getIdToken();
+          const firebaseIdToken = await userCredential.user.getIdToken(); // Firebase ID 토큰
           console.log("Firebase ID Token obtained.");
-
+          console.log(firebaseIdToken);
+          
           // Verify Token with Backend
           const verifyResponse = await fetch('http://127.0.0.1:8000/api/v1/auth/verify-token', {
             method: 'POST',
             headers: {
               'accept': 'application/json',
-              'Authorization': `Bearer ${token}`,
+              'Authorization': `Bearer ${firebaseIdToken}`, // Firebase ID 토큰 전달
             },
-             // No body needed according to curl example
           });
 
-          if (!verifyResponse.ok) {
-             let verifyApiError = '토큰 인증 실패';
-             try {
-                 const errorData = await verifyResponse.json();
-                 verifyApiError = errorData.detail || JSON.stringify(errorData);
-             } catch (jsonError) {
-                 verifyApiError = `HTTP Error ${verifyResponse.status}: ${verifyResponse.statusText}`;
-             }
-            throw new Error(verifyApiError);
+          if (!verifyResponse.ok) { /* ... 토큰 교환 에러 처리 ... */ throw new Error(/* ... */); }
+
+          // 백엔드로부터 access/refresh 토큰 받기
+          const backendTokenData = await verifyResponse.json();
+          console.log("Backend Token Exchange Successful:", backendTokenData);
+
+          if (!backendTokenData.access_token || !backendTokenData.refresh_token) {
+              throw new Error("백엔드 토큰 정보가 응답에 없습니다.");
           }
 
-          if (!verifyResponse.ok) { /* ... */ throw new Error(/* ... */); }
-          console.log("Student Login and Token Verification Successful!");
-          // !!! 로그인 성공 시 상태 저장 !!!
-          setAuthState({ isAuthenticated: true, userRole: 'student', token: token });
-          navigate('/student/dashboard'); // 리디렉션
-
-          break;
-
-        case 'instructor':
-          console.log("Attempting Instructor Login via API...");
-          const instructorLoginResponse = await fetch('http://127.0.0.1:8000/api/v1/instructors-auth/login', {
-            method: 'POST',
-            headers: {
-              'accept': 'application/json',
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ email: email, password: pw }),
+          // !!! Zustand 스토어에 백엔드 토큰 저장 !!!
+          setAuthInfo({
+            isAuthenticated: true,
+            userRole: 'student',
+            accessToken: backendTokenData.access_token, // 백엔드 Access Token
+            refreshToken: backendTokenData.refresh_token // 백엔드 Refresh Token
           });
-
-          if (!instructorLoginResponse.ok) {
-             let instructorApiError = '강의자 로그인 실패';
-             try {
-                 const errorData = await instructorLoginResponse.json();
-                 instructorApiError = errorData.detail || JSON.stringify(errorData);
-             } catch (jsonError) {
-                  instructorApiError = `HTTP Error ${instructorLoginResponse.status}: ${instructorLoginResponse.statusText}`;
-             }
-            throw new Error(instructorApiError);
-          }
-
-          if (!instructorLoginResponse.ok) { /* ... */ throw new Error(/* ... */); }
-          const instructorData = await instructorLoginResponse.json();
-          console.log("Instructor Login Successful:", instructorData);
-          // !!! 로그인 성공 시 상태 저장 !!! (API 응답에서 토큰 필드 확인 필요)
-          setAuthState({ isAuthenticated: true, userRole: 'instructor', token: instructorData.access_token || instructorData.token });
-          navigate('/instructor/courses'); // 리디렉션
+          navigate('/student/dashboard');
           break;
 
-        case 'admin':
-          console.log("Attempting Admin Login via API...");
-           const adminLoginResponse = await fetch('http://127.0.0.1:8000/api/v1/auth/admin-login', {
-            method: 'POST',
-            headers: {
-              'accept': 'application/json',
-              'Content-Type': 'application/json',
-            },
-            // Using email as username as implied
-            body: JSON.stringify({ username: email, password: pw }),
-          });
+          case 'instructor':
+            console.log("Attempting Instructor Login via API...");
+            const instructorLoginResponse = await fetch('http://127.0.0.1:8000/api/v1/instructors-auth/login', {
+              method: 'POST',
+              headers: {
+                'accept': 'application/json',
+                'Content-Type': 'application/json',
+              },
+              // 요청 Body: email과 pw(password)를 전송 -> API 명세와 일치
+              body: JSON.stringify({ email: email, password: pw }),
+            });
+          
+            if (!instructorLoginResponse.ok) {
+              // API 에러 처리 로직 (기존과 동일)
+              let instructorApiError = '강의자 로그인 실패';
+              try {
+                  const errorData = await instructorLoginResponse.json();
+                  instructorApiError = errorData.detail || JSON.stringify(errorData);
+              } catch (jsonError) {
+                   instructorApiError = `HTTP Error ${instructorLoginResponse.status}: ${instructorLoginResponse.statusText}`;
+              }
+              throw new Error(instructorApiError);
+            }
+          
+            // 성공 응답 파싱
+            const instructorData = await instructorLoginResponse.json();
+            console.log("Instructor Login Successful:", instructorData);
+          
+            // 응답에서 access_token과 refresh_token 확인 -> API 명세와 일치
+            if (!instructorData.access_token || !instructorData.refresh_token) {
+                throw new Error("강의자 로그인 응답에 토큰 정보가 없습니다.");
+            }
+          
+            // Zustand 스토어에 상태 저장 -> API 명세의 필드 이름과 일치
+            setAuthInfo({
+                isAuthenticated: true,
+                userRole: 'instructor',
+                accessToken: instructorData.access_token,
+                refreshToken: instructorData.refresh_token
+            });
+            navigate('/instructor/courses'); // 리디렉션
+            break;
 
-           if (!adminLoginResponse.ok) {
-             let adminApiError = '관리자 로그인 실패';
-             try {
-                 const errorData = await adminLoginResponse.json();
-                 adminApiError = errorData.detail || JSON.stringify(errorData);
-             } catch (jsonError) {
-                 adminApiError = `HTTP Error ${adminLoginResponse.status}: ${adminLoginResponse.statusText}`;
-             }
-            throw new Error(adminApiError);
-          }
-
-          if (!adminLoginResponse.ok) { /* ... */ throw new Error(/* ... */); }
-          const adminData = await adminLoginResponse.json();
-          console.log("Admin Login Successful:", adminData);
-          // !!! 로그인 성공 시 상태 저장 !!! (API 응답에서 토큰 필드 확인 필요)
-          setAuthState({ isAuthenticated: true, userRole: 'admin', token: adminData.access_token || adminData.token });
-          navigate('/admin/user/student'); // 리디렉션
-          break;
-
-        case 'none':
-        default:
-          setError("등록되지 않은 사용자이거나 역할 정보가 없습니다.");
-          break;
+            case 'admin':
+              console.log("Attempting Admin Login via API...");
+              const adminLoginResponse = await fetch('http://127.0.0.1:8000/api/v1/auth/admin-login', {
+                method: 'POST',
+                headers: {
+                  'accept': 'application/json',
+                  'Content-Type': 'application/json',
+                },
+                // 요청 Body: email 상태값을 username으로, pw를 password로 전송
+                // API 명세의 username 필드에 email 값을 사용하는 것이 맞다면 현재 로직은 정확합니다.
+                body: JSON.stringify({ username: email, password: pw }),
+              });
+            
+              if (!adminLoginResponse.ok) {
+                // API 에러 처리 로직 (기존과 동일)
+                let adminApiError = '관리자 로그인 실패';
+                try {
+                    const errorData = await adminLoginResponse.json();
+                    adminApiError = errorData.detail || JSON.stringify(errorData);
+                } catch (jsonError) {
+                    adminApiError = `HTTP Error ${adminLoginResponse.status}: ${adminLoginResponse.statusText}`;
+                }
+                throw new Error(adminApiError);
+              }
+            
+              // 성공 응답 파싱
+              const adminData = await adminLoginResponse.json();
+              console.log("Admin Login Successful:", adminData);
+            
+              // 응답에서 access_token과 refresh_token 확인 -> API 명세와 일치
+              if (!adminData.access_token || !adminData.refresh_token) {
+                  throw new Error("관리자 로그인 응답에 토큰 정보가 없습니다.");
+              }
+            
+              // Zustand 스토어에 상태 저장 -> API 명세의 필드 이름과 일치
+              setAuthInfo({
+                  isAuthenticated: true,
+                  userRole: 'admin',
+                  accessToken: adminData.access_token,
+                  refreshToken: adminData.refresh_token
+              });
+              navigate('/admin/user/student'); // 리디렉션
+              break;
       }
 
     } catch (err: any) {
