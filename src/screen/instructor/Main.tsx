@@ -2,6 +2,7 @@ import React from "react";
 import styled, { css } from "styled-components";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useThemeStore } from "../../store"; // 경로 확인 필요
+import { useAuthStore } from "../../authStore";
 
 // --- Styled Components ---
 
@@ -86,6 +87,32 @@ const SidebarFooter = styled.div`
   align-items: center;
 `;
 
+//로그아웃 버튼
+const LogoutButton = styled.button`
+  // div 대신 button 사용
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 10px;
+  margin-left: 5px; // 다른 버튼과의 간격
+  cursor: pointer;
+  border-radius: 50%;
+  color: ${(props) => props.theme.subTextColor};
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+  background: none; // 배경 없음
+  border: none; // 테두리 없음
+
+  &:hover {
+    background-color: ${(props) => props.theme.subTextColor}10;
+    color: ${(props) => props.theme.highlightColor || "#1f6feb"};
+  }
+
+  ${Icon} {
+    // Icon 스타일 상속 또는 재정의
+    font-size: 26px;
+  }
+`;
+
 // 하단 설정 아이콘 버튼 스타일 (NavItem과 유사하게)
 const SettingsButton = styled.div<{ isActive: boolean }>`
   display: flex;
@@ -162,7 +189,11 @@ const Main = () => {
   const location = useLocation();
   const isDark = useThemeStore((state) => state.isDark);
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
-
+  const logout = useAuthStore((state) => state.logout);
+  const handleLogout = () => {
+    logout(); // Zustand 스토어의 logout 액션 호출
+    navigate("/login"); // 로그인 페이지로 이동
+  };
   // 강의자 메뉴 항목
   const navItems = [
     { path: "/instructor/courses", icon: "menu_book", label: "Courses" },
@@ -218,6 +249,10 @@ const Main = () => {
             <Icon className="material-symbols-outlined">settings</Icon>
             {/* 필요시 텍스트 추가: <span>Settings</span> */}
           </SettingsButton>
+          {/* 로그아웃 버튼 */}
+          <LogoutButton onClick={handleLogout} title="Logout">
+            <Icon className="material-symbols-outlined">logout</Icon>
+          </LogoutButton>
         </SidebarFooter>
       </SidebarContainer>
 
