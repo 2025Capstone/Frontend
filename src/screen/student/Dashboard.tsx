@@ -26,8 +26,7 @@ const Row = styled.div`
 
 // 기본 카드 스타일
 const Card = styled.div`
-  background-color: ${(props) =>
-    props.theme.formContainerColor}; // 테마 적용
+  background-color: ${(props) => props.theme.formContainerColor}; // 테마 적용
   padding: 20px 25px;
   border-radius: 15px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
@@ -118,6 +117,7 @@ const PlaceholderCard = styled(Card)`
 const WideCard = styled(Card)`
   flex: 2; /* 다른 카드보다 너비 비율 크게 */
   min-height: 200px; /* 최소 높이 */
+  padding: 0px 60px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -347,7 +347,9 @@ const Dashboard = () => {
             ))}
           </List>
         </Card>
-        <PlaceholderCard>여기 프로필 간략하게 넣는 것도 괜춘할듯</PlaceholderCard>
+        <PlaceholderCard>
+          여기 프로필 간략하게 넣는 것도 괜춘할듯
+        </PlaceholderCard>
       </Row>
 
       <Row>
