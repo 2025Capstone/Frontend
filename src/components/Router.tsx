@@ -14,7 +14,7 @@ import LecturerMain from "../screen/instructor/Main";
 
 // 학생 페이지
 import StudentDashBoard from "../screen/student/Dashboard"
-import StudentLectures from "../screen/student/Lectures";
+import StudentLectures from "../screen/student/Courses";
 import Analysis from "../screen/student/Monitoring";
 import StudentSetting from "../screen/student/Setting";
 
