@@ -13,8 +13,9 @@ import LecturerMain from "../screen/instructor/Main";
 // import AdminMain from "../screen/admin/Main"; // TODO: 관리자 레이아웃
 
 // 학생 페이지
-import StudentDashBoard from "../screen/student/Dashboard"
+import StudentDashBoard from "../screen/student/Dashboard";
 import StudentLectures from "../screen/student/Courses";
+import StudentLecture from "../screen/student/Lecture";
 import Analysis from "../screen/student/Monitoring";
 import StudentSetting from "../screen/student/Setting";
 
@@ -51,44 +52,57 @@ const router = createBrowserRouter([
     children: [
       // --- 학생 전용 라우트 ---
       {
-        element: <RoleProtectedRoute allowedRoles={['student']} />,
+        element: <RoleProtectedRoute allowedRoles={["student"]} />,
         children: [
           {
             path: "/student",
             element: <StudentMain />,
             children: [
               { path: "dashboard", element: <StudentDashBoard /> },
-              { path: "courses", element: <StudentLectures /> },
+              {
+                path: "courses", // '/student/courses' 경로
+                element: <Outlet />, // 하위 라우트(목록, 상세)를 위한 Outlet
+                children: [
+                  {
+                    index: true, // '/student/courses' 정확히 일치할 때
+                    element: <StudentLectures />, // 강의 목록 컴포넌트
+                  },
+                  {
+                    path: ":lectureId", // '/student/courses/:lectureId' 패턴
+                    element: <StudentLecture />, // *** 강의 상세 컴포넌트 ***
+                  },
+                ],
+              },
               { path: "monitoring", element: <Analysis /> },
               { path: "setting", element: <StudentSetting /> },
               // /student 기본 경로 -> dashboard로 리디렉션
-              { index: true, element: <Navigate to="dashboard" replace /> }
+              { index: true, element: <Navigate to="dashboard" replace /> },
             ],
           },
-        ]
+        ],
       },
       // --- 강의자 전용 라우트 ---
       {
-        element: <RoleProtectedRoute allowedRoles={['instructor']} />, 
+        element: <RoleProtectedRoute allowedRoles={["instructor"]} />,
         children: [
           {
             path: "/instructor",
             element: <LecturerMain />,
             children: [
-              { path: "courses", element: <InstructorCourses/> },
+              { path: "courses", element: <InstructorCourses /> },
               {
                 path: "recording",
                 children: [
                   { index: true, element: <RecordingList /> }, // /instructor/recording
-                  { path: ":id", element: <RecordingDetail /> } // /instructor/recording/:id
-                ]
+                  { path: ":id", element: <RecordingDetail /> }, // /instructor/recording/:id
+                ],
               },
               { path: "setting", element: <InstructorSetting /> },
-               // /instructor 기본 경로 -> courses로 리디렉션
-              { index: true, element: <Navigate to="courses" replace /> }
+              // /instructor 기본 경로 -> courses로 리디렉션
+              { index: true, element: <Navigate to="courses" replace /> },
             ],
-          }
-        ]
+          },
+        ],
       },
       // --- 관리자 전용 라우트 (TODO) ---
       // {
@@ -107,8 +121,7 @@ const router = createBrowserRouter([
 
       // --- 모든 로그인 사용자가 접근 가능한 공통 라우트 (선택 사항) ---
       // { path: "/profile", element: <UserProfile /> }
-
-    ] // ProtectedRoute children 끝
+    ], // ProtectedRoute children 끝
   }, // ProtectedRoute 끝
 
   // --- 404 Not Found (맨 마지막에 위치) ---
