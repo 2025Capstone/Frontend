@@ -143,17 +143,6 @@ const AnalysisPlaceholder = styled.div`
   margin-bottom: 20px;
 `;
 
-const StopButton = styled.button`
-  background-color: ${(props) => props.theme.btnColor};
-  color: #333;
-  border: none;
-  border-radius: 8px;
-  padding: 10px 20px;
-  font-weight: 600;
-  cursor: pointer;
-  float: right; /* 오른쪽 정렬 */
-`;
-
 // 로딩/에러 메시지
 const MessageContainer = styled.div`
   padding: 40px;
@@ -456,7 +445,6 @@ const Lecture = () => {
           <AnalysisPlaceholder>
             Drowsiness Summary Placeholder
           </AnalysisPlaceholder>
-          <StopButton>수강중지버튼</StopButton>
         </RightColumn>
       </ContentLayout>
     </DetailPageContainer>
