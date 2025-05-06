@@ -1,9 +1,10 @@
 // src/screen/student/LectureDetail.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import styled from "styled-components";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import apiClient from "../../api/apiClient"; // Axios 클라이언트
 import HlsPlayer from "../../components/video/HlsPlayer";
+import { debounce } from "lodash";
 // --- Styled Components for Detail Page ---
 
 const DetailPageContainer = styled.div`
@@ -143,17 +144,6 @@ const AnalysisPlaceholder = styled.div`
   margin-bottom: 20px;
 `;
 
-const StopButton = styled.button`
-  background-color: ${(props) => props.theme.btnColor};
-  color: #333;
-  border: none;
-  border-radius: 8px;
-  padding: 10px 20px;
-  font-weight: 600;
-  cursor: pointer;
-  float: right; /* 오른쪽 정렬 */
-`;
-
 // 로딩/에러 메시지
 const MessageContainer = styled.div`
   padding: 40px;
@@ -171,21 +161,105 @@ interface Video {
   watched_percent: number;
 }
 
+interface Video {
+  id: number;
+  index: number;
+  title: string;
+  duration: number;
+  upload_at: string;
+  watched_percent: number;
+}
+
 // --- LectureDetail Component ---
 const Lecture = () => {
-  // URL 파라미터에서 lectureId 가져오기
   const { lectureId } = useParams<{ lectureId: string }>();
-  const navigate = useNavigate(); // 이전 페이지 이동 등 활용 가능
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [videos, setVideos] = useState<Video[]>([]);
-  const [lectureName, setLectureName] = useState<string>("Loading..."); // 강의명 상태
-  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null); // 현재 선택/재생 중인 비디오
+  const [lectureName, setLectureName] = useState<string>("Loading...");
+  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [hlsSrc, setHlsSrc] = useState<string | null>(null);
+  const [playerLoading, setPlayerLoading] = useState<boolean>(false);
+  const [playerError, setPlayerError] = useState<string | null>(null);
+  const [currentPlayTime, setCurrentPlayTime] = useState<number>(0);
+  const [currentDuration, setCurrentDuration] = useState<number>(0);
+  const [initialWatchedPercent, setInitialWatchedPercent] = useState<number>(0);
+  const progressRef = useRef<{ videoId: number | null; percent: number }>({
+    videoId: null,
+    percent: 0,
+  });
 
-  const [hlsSrc, setHlsSrc] = useState<string | null>(null); // HLS 비디오 소스 URL 상태
-  const [playerLoading, setPlayerLoading] = useState<boolean>(false); // 비디오 링크 로딩 상태
-  const [playerError, setPlayerError] = useState<string | null>(null); // 비디오 링크 로딩 에러 상태
+  const performSave = useCallback(async () => {
+    const { videoId, percent } = progressRef.current;
+    if (videoId !== null && percent > 0 && percent <= 100) {
+      console.log(
+        `[performSave] Saving progress for video ${videoId}: ${percent}%`
+      );
+      try {
+        await apiClient.post("/students/lecture/video/progress", {
+          video_id: videoId,
+          watched_percent: percent,
+        });
+        console.log(`[performSave] Success for video ${videoId}`);
+      } catch (err) {
+        console.error(`[performSave] Failed for video ${videoId}:`, err);
+      }
+    }
+  }, []);
+
+  const debouncedSaveProgress = useCallback(debounce(performSave, 5000), [
+    performSave,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      console.log("[Unmount Effect] Triggering final save attempt...");
+      debouncedSaveProgress.cancel();
+      performSave();
+    };
+  }, [performSave, debouncedSaveProgress]);
+
+  useEffect(() => {
+    const resetPercent =
+      progressRef.current.videoId !== (selectedVideo?.id ?? null);
+    progressRef.current = {
+      videoId: selectedVideo?.id ?? null,
+      percent: resetPercent ? 0 : progressRef.current.percent,
+    };
+  }, [selectedVideo]);
+
+  const fetchHlsLink = useCallback(async (videoId: number) => {
+    if (videoId === null || videoId === undefined) return;
+    setPlayerLoading(true);
+    setPlayerError(null);
+    setHlsSrc(null);
+    setInitialWatchedPercent(0);
+    try {
+      console.log(`[fetchHlsLink] Fetching HLS link for video ID: ${videoId}`);
+      const response = await apiClient.post<{
+        s3_link: string;
+        watched_percent: number;
+      }>("/students/lecture/video/link", { video_id: videoId });
+      console.log(`[fetchHlsLink] API Response for ${videoId}:`, response.data);
+      if (response.data?.s3_link) {
+        setHlsSrc(response.data.s3_link);
+        setInitialWatchedPercent(response.data.watched_percent || 0);
+      } else {
+        throw new Error("비디오 링크를 가져올 수 없습니다.");
+      }
+    } catch (err: any) {
+      console.error(
+        `[fetchHlsLink] Error fetching HLS link for ${videoId}:`,
+        err
+      );
+      setPlayerError(err.message || "비디오 링크 로딩 중 오류 발생");
+    } finally {
+      setPlayerLoading(false);
+    }
+  }, []); // 의존성 없음
 
   useEffect(() => {
     if (!lectureId) {
@@ -193,35 +267,26 @@ const Lecture = () => {
       setLoading(false);
       return;
     }
-
     const fetchInitialData = async () => {
       setLoading(true);
       setError(null);
-      //임의로 lecture id 표시(근데 안바꿔도 될듯?)
-      setLectureName(`Lecture ID ${lectureId}`);
-
+      const passedLectureName = location.state?.lectureName;
+      setLectureName(passedLectureName || `Lecture ID ${lectureId}`);
       try {
         const lectureIdNumber = parseInt(lectureId, 10);
-        if (isNaN(lectureIdNumber)) {
+        if (isNaN(lectureIdNumber))
           throw new Error("Invalid Lecture ID format.");
-        }
-
-        // 비디오 목록 요청
         const response = await apiClient.post<{ videos: Video[] }>(
           "/students/lecture/video",
-          {
-            lecture_id: lectureIdNumber,
-          }
+          { lecture_id: lectureIdNumber }
         );
         const fetchedVideos = response.data.videos || [];
         setVideos(fetchedVideos);
-
-        // 첫 번째 비디오 자동 선택 및 HLS 링크 로드
         if (fetchedVideos.length > 0) {
           setSelectedVideo(fetchedVideos[0]);
-          await fetchHlsLink(fetchedVideos[0].id); // 첫 비디오 링크 가져오기
+          await fetchHlsLink(fetchedVideos[0].id);
         } else {
-          setHlsSrc(null); // 비디오 없으면 링크 없음
+          setHlsSrc(null);
         }
       } catch (err: any) {
         console.error("Failed to fetch initial data:", err);
@@ -231,43 +296,9 @@ const Lecture = () => {
         setLoading(false);
       }
     };
-
     fetchInitialData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lectureId]); // lectureId 변경 시 재호출 (location.state는 제외 가능성 있음)
+  }, [lectureId, location.state, fetchHlsLink]);
 
-  //HLS 링크 가져오는 함수
-  const fetchHlsLink = async (videoId: number) => {
-    if (!videoId) return; // videoId가 유효하지 않으면 중단
-
-    setPlayerLoading(true); // 플레이어 로딩 시작
-    setPlayerError(null);
-    setHlsSrc(null); // 이전 링크 제거
-
-    try {
-      console.log(`Workspaceing HLS link for video ID: ${videoId}`);
-      const response = await apiClient.post<{
-        s3_link: string;
-        watched_percent: number;
-      }>("/students/lecture/video/link", {
-        video_id: videoId,
-      });
-
-      if (response.data && response.data.s3_link) {
-        console.log(`HLS link received: ${response.data.s3_link}`);
-        setHlsSrc(response.data.s3_link);
-        // TODO: watched_percent 값 필요시 상태 저장 또는 활용
-      } else {
-        throw new Error("비디오 링크를 가져올 수 없습니다.");
-      }
-    } catch (err: any) {
-      console.error("Failed to fetch HLS link:", err);
-      setPlayerError(err.message || "비디오 링크 로딩 중 오류 발생");
-    } finally {
-      setPlayerLoading(false); // 플레이어 로딩 종료
-    }
-  };
-  // 비디오 재생 시간 포맷 (MM:SS)
   const formatDuration = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
@@ -276,39 +307,58 @@ const Lecture = () => {
       .padStart(2, "0")}`;
   };
 
-  // 비디오 리스트 아이템 클릭 핸들러
-  const handleVideoSelect = async (video: Video) => {
-    setSelectedVideo(video);
-    console.log("Selected video:", video);
-    // !!! 전달되는 videoId 값 확인 !!!
-    console.log(
-      `[handleVideoSelect] Calling fetchHlsLink with videoId: ${
-        video.id
-      } (type: ${typeof video.id})`
-    );
+  const handleTimeUpdate = useCallback(
+    (time: number, duration: number) => {
+      setCurrentPlayTime(time);
+      if (duration && !isNaN(duration) && duration > 0) {
+        setCurrentDuration(duration);
+        const percent = Math.round((time / duration) * 100);
+        const currentPercentInRef = progressRef.current.percent;
+        const newPercent =
+          percent >= 0 && percent <= 100 ? percent : currentPercentInRef;
+        if (newPercent > currentPercentInRef) {
+          progressRef.current.percent = newPercent;
+          debouncedSaveProgress();
+        }
+      }
+    },
+    [debouncedSaveProgress]
+  );
 
-    // ID 유효성 검사 강화 (0도 유효하다고 가정)
-    if (video.id !== undefined && video.id !== null) {
-      await fetchHlsLink(video.id);
-    } else {
-      console.error(
-        "[handleVideoSelect] Invalid video.id found. fetchHlsLink not called."
+  const handleVideoSelect = useCallback(
+    async (video: Video) => {
+      if (progressRef.current.videoId === video.id) {
+        console.log(
+          `[handleVideoSelect] Clicked the same video (${video.id}). Skipping.`
+        );
+        return;
+      }
+      console.log(
+        `[handleVideoSelect] New video selected: ${video.id}. Saving progress for previous video: ${progressRef.current.videoId}`
       );
-      // 사용자에게 에러 메시지 표시 또는 다른 처리
-      setPlayerError("선택된 비디오의 ID가 유효하지 않습니다.");
-      setHlsSrc(null); // 플레이어 초기화
-    }
-  };
+      debouncedSaveProgress.cancel();
+      await performSave();
+      setCurrentPlayTime(0);
+      setCurrentDuration(0);
+      setHlsSrc(null);
+      setPlayerError(null);
+      setInitialWatchedPercent(0);
+      setSelectedVideo(video);
+      await fetchHlsLink(video.id);
+    },
+    [performSave, debouncedSaveProgress, fetchHlsLink]
+  );
 
   if (loading)
     return <MessageContainer>Loading lecture details...</MessageContainer>;
   if (error) return <MessageContainer>Error: {error}</MessageContainer>;
 
+  // --- JSX Structure using Assumed Styled Components ---
+  // Make sure to import the actual styled components where needed
   return (
     <DetailPageContainer>
-      <Breadcrumb>&gt; Courses / {lectureName}</Breadcrumb> {/* 동적 강의명 */}
+      <Breadcrumb>&gt; Courses / {lectureName}</Breadcrumb>
       <ContentLayout>
-        {/* 왼쪽 컬럼: 강의 스케줄 (비디오 목록) */}
         <LeftColumn>
           <Card>
             <CardTitle>Course Schedule</CardTitle>
@@ -317,16 +367,14 @@ const Lecture = () => {
                 videos.map((video) => (
                   <VideoListItem
                     key={video.id}
-                    isActive={selectedVideo?.id === video.id} // 현재 선택된 비디오 하이라이트
+                    isActive={selectedVideo?.id === video.id}
                     onClick={() => handleVideoSelect(video)}
                   >
                     <VideoInfo>
-                      {/* API 응답의 index가 주차 정보라고 가정 */}
                       <VideoMeta>Week {video.index + 1}</VideoMeta>
                       <VideoTitle>
                         Chapter {video.index + 1}. {video.title}
                       </VideoTitle>
-                      {/* 날짜 형식은 API 응답에 맞춰 수정 필요 */}
                       <VideoMeta>
                         {new Date(video.upload_at).toLocaleDateString()}
                       </VideoMeta>
@@ -356,20 +404,21 @@ const Lecture = () => {
           </Card>
         </LeftColumn>
 
-        {/* 오른쪽 컬럼: 비디오 플레이어 및 분석 */}
         <RightColumn>
           <Card>
-            {/* 플레이어도 카드 안에 넣거나 스타일 조정 */}
             {playerLoading && (
               <MessageContainer>Loading video...</MessageContainer>
             )}
             {playerError && (
               <MessageContainer>Error: {playerError}</MessageContainer>
             )}
-            {!playerLoading && !playerError && hlsSrc && (
-              // hlsSrc가 있을 때만 HlsPlayer 렌더링
-              // key prop을 사용하여 src 변경 시 플레이어 강제 리렌더링
-              <HlsPlayer key={hlsSrc} src={hlsSrc} />
+            {!playerLoading && !playerError && hlsSrc && selectedVideo && (
+              <HlsPlayer
+                key={hlsSrc}
+                src={hlsSrc}
+                onTimeUpdate={handleTimeUpdate}
+                initialSeekPercent={initialWatchedPercent}
+              />
             )}
             {!playerLoading && !playerError && !hlsSrc && selectedVideo && (
               <MessageContainer>Could not load video source.</MessageContainer>
@@ -380,11 +429,11 @@ const Lecture = () => {
               </PlayerPlaceholder>
             )}
           </Card>
-          {/* 분석 영역 */}
           <AnalysisPlaceholder>
             Drowsiness Summary Placeholder
           </AnalysisPlaceholder>
-          <StopButton>수강중지버튼</StopButton>
+          {/* <StopButton>수강중지버튼</StopButton> */}{" "}
+          {/* StopButton 정의가 없으므로 주석 처리 */}
         </RightColumn>
       </ContentLayout>
     </DetailPageContainer>
