@@ -14,8 +14,8 @@ import LecturerMain from "../screen/instructor/Main";
 
 // 학생 페이지
 import StudentDashBoard from "../screen/student/Dashboard";
-import StudentLectures from "../screen/student/Courses";
-import StudentLecture from "../screen/student/Lecture";
+import StudentLectures from "../screen/student/Lectures";
+import StudentLecture from "../screen/student/Courses";
 import Analysis from "../screen/student/Monitoring";
 import StudentSetting from "../screen/student/Setting";
 
@@ -89,7 +89,20 @@ const router = createBrowserRouter([
             path: "/instructor",
             element: <LecturerMain />,
             children: [
-              { path: "courses", element: <InstructorCourses /> },
+              {
+                path: "courses",
+                element: <Outlet />, // 하위 라우트(목록, 상세)를 위한 Outlet
+                children: [
+                  {
+                    index: true, // '/student/courses' 정확히 일치할 때
+                    element: <InstructorCourses />, // 강의 목록 컴포넌트
+                  },
+                  {
+                    path: ":lectureId", // '/student/courses' 정확히 일치할 때
+                    element: <InstructorCourses />, // 강의 목록 컴포넌트
+                  },
+                ],
+              },
               {
                 path: "recording",
                 children: [

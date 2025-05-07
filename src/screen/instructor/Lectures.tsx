@@ -112,8 +112,7 @@ interface InstructorLecture {
   name: string;
 }
 
-// --- InstructorCourses Component ---
-const InstructorCourses = () => {
+const InstructorLectures = () => {
   const [lectures, setLectures] = useState<InstructorLecture[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -196,4 +195,4 @@ const InstructorCourses = () => {
   );
 };
 
-export default InstructorCourses;
+export default InstructorLectures;
