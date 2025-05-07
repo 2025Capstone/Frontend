@@ -171,7 +171,7 @@ interface Video {
 }
 
 // --- LectureDetail Component ---
-const Lecture = () => {
+const Lectures = () => {
   const { lectureId } = useParams<{ lectureId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -440,4 +440,4 @@ const Lecture = () => {
   );
 };
 
-export default Lecture;
+export default Lectures;

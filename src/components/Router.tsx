@@ -14,13 +14,14 @@ import LecturerMain from "../screen/instructor/Main";
 
 // 학생 페이지
 import StudentDashBoard from "../screen/student/Dashboard";
-import StudentLectures from "../screen/student/Courses";
-import StudentLecture from "../screen/student/Lecture";
+import StudentCourses from "../screen/student/Courses";
+import StudentLectures from "../screen/student/Lectures";
 import Analysis from "../screen/student/Monitoring";
 import StudentSetting from "../screen/student/Setting";
 
 // 교수자 페이지
-import InstructorCourses from "../screen/instructor/Lectures";
+import InstructorCourses from "../screen/instructor/Courses";
+import InstructorLectures from "../screen/instructor/Lectures";
 import InstructorSetting from "../screen/instructor/Setting";
 import RecordingList from "../screen/instructor/RecordingList";
 import RecordingDetail from "../screen/instructor/RecordingDetail";
@@ -30,6 +31,7 @@ import RecordingDetail from "../screen/instructor/RecordingDetail";
 // 보호 라우트 컴포넌트 import
 import ProtectedRoute from "../components/auth/ProtectedRoute"; // 경로 확인
 import RoleProtectedRoute from "../components/auth/RoleProtectedRoute"; // 경로 확인
+
 
 const router = createBrowserRouter([
   // --- 공개 라우트 ---
@@ -65,11 +67,11 @@ const router = createBrowserRouter([
                 children: [
                   {
                     index: true, // '/student/courses' 정확히 일치할 때
-                    element: <StudentLectures />, // 강의 목록 컴포넌트
+                    element: <StudentCourses />, // 강의 목록 컴포넌트
                   },
                   {
                     path: ":lectureId", // '/student/courses/:lectureId' 패턴
-                    element: <StudentLecture />, // *** 강의 상세 컴포넌트 ***
+                    element: <StudentLectures />, // *** 강의 상세 컴포넌트 ***
                   },
                 ],
               },
@@ -89,7 +91,20 @@ const router = createBrowserRouter([
             path: "/instructor",
             element: <LecturerMain />,
             children: [
-              { path: "courses", element: <InstructorCourses /> },
+              {
+                path: "courses",
+                element: <Outlet />, // 하위 라우트(목록, 상세)를 위한 Outlet
+                children: [
+                  {
+                    index: true, 
+                    element: <InstructorCourses />, 
+                  },
+                  {
+                    path: ":lectureId",
+                    element: <InstructorLectures />,
+                  },
+                ],
+              },
               {
                 path: "recording",
                 children: [
