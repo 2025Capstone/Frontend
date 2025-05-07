@@ -85,7 +85,7 @@ const TableRow = styled(TableRowBase)`
   }
 
   &:hover {
-    background-color: ${(props) => props.theme.formContainerColor || "#f9f9f9"};
+    background-color: ${(props) => props.theme.hoverBtnColor || "#f9f9f9"};
   }
 `;
 
@@ -115,7 +115,7 @@ const Icon = styled.span`
   display: flex;
   align-items: center;
   font-size: 1.4rem; /* 아이콘 기본 크기 */
-  color: ${(props) => props.theme.subTextColor}; /* 기본 아이콘 색상 */
+  color: ${(props) => props.theme.textColor}; /* 기본 아이콘 색상 */
 
   &.arrow-icon {
     justify-self: flex-end; /* 화살표 아이콘 오른쪽 끝 정렬 */
