@@ -26,12 +26,12 @@ import InstructorSetting from "../screen/instructor/Setting";
 import RecordingList from "../screen/instructor/RecordingList";
 import RecordingDetail from "../screen/instructor/RecordingDetail";
 
-// TODO: 관리자 페이지 컴포넌트 import
+// 관리자 페이지
+import AdminMain from "../screen/admin/Main";
 
 // 보호 라우트 컴포넌트 import
 import ProtectedRoute from "../components/auth/ProtectedRoute"; // 경로 확인
 import RoleProtectedRoute from "../components/auth/RoleProtectedRoute"; // 경로 확인
-
 
 const router = createBrowserRouter([
   // --- 공개 라우트 ---
@@ -96,8 +96,8 @@ const router = createBrowserRouter([
                 element: <Outlet />, // 하위 라우트(목록, 상세)를 위한 Outlet
                 children: [
                   {
-                    index: true, 
-                    element: <InstructorCourses />, 
+                    index: true,
+                    element: <InstructorCourses />,
                   },
                   {
                     path: ":lectureId",
@@ -119,23 +119,37 @@ const router = createBrowserRouter([
           },
         ],
       },
-      // --- 관리자 전용 라우트 (TODO) ---
-      // {
-      //   element: <RoleProtectedRoute allowedRoles={['admin']} />, // 2단계: 관리자 역할 체크
-      //   children: [
-      //     {
-      //       path: "/admin",
-      //       element: <AdminMain />, // 관리자 레이아웃
-      //       children: [
-      //         // ... 관리자 페이지 라우트 ...
-      //         { index: true, element: <Navigate to="some-admin-page" replace /> }
-      //       ]
-      //     }
-      //   ]
-      // },
-
-      // --- 모든 로그인 사용자가 접근 가능한 공통 라우트 (선택 사항) ---
-      // { path: "/profile", element: <UserProfile /> }
+      {
+        element: <RoleProtectedRoute allowedRoles={["admin"]} />, // 관리자 역할 체크
+        children: [
+          {
+            path: "/admin", // 관리자 기본 경로
+            element: <AdminMain />, // 관리자 레이아웃 적용
+            children: [
+              // 사용자 관리 섹션
+              {
+                path: "user", // /admin/user
+                element: <Outlet />, // user 하위 페이지들 위한 Outlet
+                children: [
+                  {
+                    path: "student", // /admin/user/student
+                    // element: <AdminStudentUserList />, // 학생 관리 페이지 컴포넌트
+                  },
+                  // TODO: path: "instructor", element: <AdminInstructorUserList /> 등 추가 가능
+                  // /admin/user 접속 시 기본으로 student 보여주기
+                  { index: true, element: <Navigate to="student" replace /> },
+                ],
+              },
+              // 강의 관리 섹션 (예시)
+              {
+                path: "course", // /admin/course
+                element: <div>Admin Course Management Placeholder</div>,
+              },
+              { index: true, element: <Navigate to="user/student" replace /> },
+            ],
+          },
+        ],
+      }, // 관리자 라우트 끝
     ], // ProtectedRoute children 끝
   }, // ProtectedRoute 끝
 
