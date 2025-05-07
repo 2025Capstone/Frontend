@@ -3,17 +3,19 @@ import React from "react";
 import styled, { css } from "styled-components";
 // useLocation, useNavigate, Outlet import 확인
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useThemeStore } from "../../store";
+import { useAuthStore } from "../../authStore";
 
 const LayoutWrapper = styled.div`
   display: flex;
   /* 필요시 테마 배경색 적용 */
-  /* background-color: ${props => props.theme.backgroundColor}; */
+  /* background-color: ${(props) => props.theme.backgroundColor}; */
 `;
 
 const SidebarContainer = styled.nav`
   width: 18%; /* 필요시 너비 조정 */
   height: 100vh;
-  background-color: ${(props) => props.theme.navBackgroundColor || '#f8f9fa'};
+  background-color: ${(props) => props.theme.navBackgroundColor || "#f8f9fa"};
   color: ${(props) => props.theme.subTextColor};
   display: flex;
   flex-direction: column;
@@ -60,8 +62,9 @@ const NavItem = styled.li<{ isActive: boolean }>`
   ${(props) =>
     props.isActive &&
     css`
-      background-color: ${(props)=>props.theme.formContainerColor || '#e7f0ff'};
-      color: ${(props)=>props.theme.highlightColor || '#1f6feb'};
+      background-color: ${(props) =>
+        props.theme.formContainerColor || "#e7f0ff"};
+      color: ${(props) => props.theme.highlightColor || "#1f6feb"};
       font-weight: 600;
     `}
 
@@ -69,8 +72,8 @@ const NavItem = styled.li<{ isActive: boolean }>`
     ${(props) =>
       !props.isActive &&
       css`
-        background-color: ${(props)=>props.theme.subTextColor}10;
-        color: ${(props)=>props.theme.highlightColor || '#1f6feb'};
+        background-color: ${(props) => props.theme.subTextColor}10;
+        color: ${(props) => props.theme.highlightColor || "#1f6feb"};
       `}
   }
 `;
@@ -81,6 +84,66 @@ const Icon = styled.span`
   align-items: center;
 `;
 
+// 하단 영역: 설정 아이콘과 테마 토글 버튼 포함
+const SidebarFooter = styled.div`
+  margin-top: auto; /* 상단 메뉴와 최대한 멀리 떨어짐 */
+  padding: 15px 15px 20px 15px; /* 패딩 조정 */
+  display: flex;
+  justify-content: flex-end; /* 양쪽 끝 정렬 */
+  align-items: center;
+`;
+
+//로그아웃 버튼
+const LogoutButton = styled.button`
+  // div 대신 button 사용
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 10px;
+  margin-left: 5px; // 다른 버튼과의 간격
+  cursor: pointer;
+  border-radius: 50%;
+  color: ${(props) => props.theme.subTextColor};
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+  background: none; // 배경 없음
+  border: none; // 테두리 없음
+
+  &:hover {
+    background-color: ${(props) => props.theme.subTextColor}10;
+    color: ${(props) => props.theme.highlightColor || "#1f6feb"};
+  }
+
+  ${Icon} {
+    // Icon 스타일 상속 또는 재정의
+    font-size: 26px;
+  }
+`;
+
+// 하단 테마 토글 버튼 스타일
+const ThemeToggleButtonBottom = styled.button`
+  background: none;
+  border: none;
+  color: ${(props) => props.theme.subTextColor};
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 26px;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+
+  .material-symbols-outlined {
+    font-size: inherit;
+  }
+
+  &:hover {
+    background-color: ${(props) => props.theme.subTextColor}1A;
+    border-color: ${(props) => props.theme.textColor};
+    color: ${(props) => props.theme.textColor};
+  }
+`;
 const MainContent = styled.div`
   margin-left: 18%; /* SidebarContainer width와 동일하게 설정 */
   width: 82%; /* 100% - SidebarContainer width */
@@ -97,10 +160,13 @@ const MainContent = styled.div`
 const AdminMain = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  // 필요시 테마/로그아웃 스토어 사용
-  // const isDark = useThemeStore((state) => state.isDark);
-  // const toggleTheme = useThemeStore((state) => state.toggleTheme);
-  // const logout = useAuthStore((state) => state.logout);
+  const isDark = useThemeStore((state) => state.isDark);
+  const toggleTheme = useThemeStore((state) => state.toggleTheme);
+  const logout = useAuthStore((state) => state.logout);
+  const handleLogout = () => {
+    logout(); // Zustand 스토어의 logout 액션 호출
+    navigate("/login"); // 로그인 페이지로 이동
+  };
 
   // 관리자 메뉴 항목 정의
   const navItems = [
@@ -109,13 +175,10 @@ const AdminMain = () => {
     { path: "/admin/course", icon: "school", label: "Course Manage" }, // 아이콘은 'school' 또는 'menu_book' 등
   ];
 
-  // const handleLogout = () => {
-  //   logout();
-  //   navigate('/login');
-  // };
-
   return (
-    <LayoutWrapper> {/* 전체 레이아웃을 감싸는 Wrapper */}
+    <LayoutWrapper>
+      {" "}
+      {/* 전체 레이아웃을 감싸는 Wrapper */}
       <SidebarContainer>
         <SidebarTitle>Project Title</SidebarTitle>
 
@@ -135,17 +198,24 @@ const AdminMain = () => {
             );
           })}
         </NavList>
-
-        {/* 관리자용 하단 버튼이 필요하다면 여기에 추가 */}
-        {/*
+        {/* 하단 영역: 설정 아이콘과 테마 토글 버튼 */}
         <SidebarFooter>
-           <ThemeToggleButtonBottom onClick={toggleTheme} title="Toggle Theme">...</ThemeToggleButtonBottom>
-           <LogoutButton onClick={handleLogout} title="Logout">...</LogoutButton>
+          {/* 테마 토글 버튼 */}
+          <ThemeToggleButtonBottom onClick={toggleTheme} title="Toggle Theme">
+            {isDark ? (
+              <span className="material-symbols-outlined">light_mode</span>
+            ) : (
+              <span className="material-symbols-outlined">dark_mode</span>
+            )}
+          </ThemeToggleButtonBottom>
+          {/* 설정 아이콘 버튼 */}
+          {/* 로그아웃 버튼 */}
+          <LogoutButton onClick={handleLogout} title="Logout">
+            <Icon className="material-symbols-outlined">logout</Icon>
+          </LogoutButton>
         </SidebarFooter>
-        */}
 
       </SidebarContainer>
-
       <MainContent>
         {/* 하위 페이지(예: User/Student 목록)가 렌더링될 위치 */}
         <Outlet />
