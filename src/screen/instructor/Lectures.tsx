@@ -4,6 +4,7 @@ import styled from "styled-components";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import apiClient from "../../api/apiClient"; // Axios 클라이언트
 import HlsPlayer from "../../components/video/HlsPlayer";
+import ManageStudents from "./ManageStudents";
 
 // --- Styled Components ---
 
@@ -278,6 +279,8 @@ const InstructorLectureDetail = () => {
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
+  const [isManageStudentsModalOpen, setIsManageStudentsModalOpen] = useState(false);
+
   useEffect(() => {
     if (!lectureId) {
       setError("Lecture ID not found.");
@@ -373,18 +376,21 @@ const InstructorLectureDetail = () => {
       .padStart(2, "0")}`;
   };
 
+  const openManageStudentsModal = () => setIsManageStudentsModalOpen(true);
+  const closeManageStudentsModal = () => setIsManageStudentsModalOpen(false);
+
   if (loading)
     return <MessageContainer>Loading lecture details...</MessageContainer>;
   if (error && videos.length === 0)
     return <MessageContainer>Error: {error}</MessageContainer>;
 
   const hlsSrc = selectedVideo?.s3_link || "";
-  
+
   return (
     <DetailPageContainer>
       <TopHeader>
         <Breadcrumb>&gt; Courses / {lectureName}</Breadcrumb>
-        <ManageButton onClick={() => alert("Manage Students clicked!")}>
+        <ManageButton onClick={openManageStudentsModal}>
           Manage Students
         </ManageButton>
       </TopHeader>
@@ -503,6 +509,12 @@ const InstructorLectureDetail = () => {
           )}
         </RightColumn>
       </ContentLayout>
+      <ManageStudents
+         isOpen={isManageStudentsModalOpen}
+         onClose={closeManageStudentsModal}
+         lectureId={lectureId ? parseInt(lectureId, 10) : -1} // lectureId 전달 (숫자 변환)
+         lectureName={lectureName !== "Loading..." && lectureName !== "Error" ? lectureName : undefined} // 강의명 전달
+      />
     </DetailPageContainer>
   );
 };
