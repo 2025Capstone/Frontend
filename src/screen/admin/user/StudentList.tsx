@@ -288,11 +288,11 @@ const AdminStudentUserList = () => {
                onChange={(e) => setSearchTerm(e.target.value)}
              />
           </SearchBox>
-          <FilterDropdown>
+          {/* <FilterDropdown>
             <option value="studentId">Student ID</option>
             <option value="name">Name</option>
             <option value="email">Email</option>
-          </FilterDropdown>
+          </FilterDropdown> */}
         </ControlBar>
       </PageHeader>
 
