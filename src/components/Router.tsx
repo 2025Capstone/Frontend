@@ -28,7 +28,7 @@ import RecordingDetail from "../screen/instructor/RecordingDetail";
 
 // 관리자 페이지
 import AdminMain from "../screen/admin/Main";
-
+import AdminStudentUserList from "../screen/admin/user/StudentList";
 // 보호 라우트 컴포넌트 import
 import ProtectedRoute from "../components/auth/ProtectedRoute"; // 경로 확인
 import RoleProtectedRoute from "../components/auth/RoleProtectedRoute"; // 경로 확인
@@ -133,7 +133,7 @@ const router = createBrowserRouter([
                 children: [
                   {
                     path: "student", // /admin/user/student
-                    // element: <AdminStudentUserList />, // 학생 관리 페이지 컴포넌트
+                    element: <AdminStudentUserList />, // 학생 관리 페이지 컴포넌트
                   },
                   // TODO: path: "instructor", element: <AdminInstructorUserList /> 등 추가 가능
                   // /admin/user 접속 시 기본으로 student 보여주기
