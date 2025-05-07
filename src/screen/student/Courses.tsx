@@ -1,443 +1,241 @@
-// src/screen/student/LectureDetail.tsx
-import React, { useState, useEffect, useRef, useCallback } from "react";
+// src/screen/student/Lectures.tsx
+import React, { useState, useEffect } from "react";
 import styled from "styled-components";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
-import apiClient from "../../api/apiClient"; // Axios 클라이언트
-import HlsPlayer from "../../components/video/HlsPlayer";
-import { debounce } from "lodash";
-// --- Styled Components for Detail Page ---
+import { useNavigate } from "react-router-dom";
+import apiClient from "../../api/apiClient"; // 설정된 Axios 클라이언트 import
 
-const DetailPageContainer = styled.div`
+// --- Styled Components for Courses Page ---
+
+const CoursesContainer = styled.div`
+  width: 100%;
+  /* 전체적인 패딩이나 마진은 MainContent에서 처리될 수 있음 */
+`;
+
+const MainTitle = styled.h2`
+  color: ${(props) => props.theme.textColor};
+  font-size: 20px;
+  font-weight: bold;
+  margin-bottom: 20px;
+`;
+
+const CoursesListCard = styled.div`
+  background-color: ${(props) => props.theme.formContainerColor || "white"};
+  border-radius: 15px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  padding: 15px 0; /* 상하 패딩, 좌우 패딩은 TableRow/Header에서 처리 */
+  overflow: hidden; /* 내부 요소가 넘치지 않도록 */
+`;
+
+// 테이블 레이아웃을 위한 Wrapper (Grid 또는 Flex)
+const Table = styled.div`
+  display: flex;
+  flex-direction: column;
   width: 100%;
 `;
 
-const Breadcrumb = styled.div`
-  font-size: 0.9rem;
-  color: ${(props) => props.theme.subTextColor};
-  margin-bottom: 25px;
-`;
-
-const ContentLayout = styled.div`
-  display: flex;
-  gap: 30px; /* 좌우 컬럼 간격 */
+// 공통 Row 스타일 (Header와 Body Row)
+const TableRowBase = styled.div`
+  display: grid;
+  /* 컬럼 비율 조정: Status(아이콘+뱃지), Course(이름+ID), Instructor, Schedule, Location, Action(화살표) */
+  grid-template-columns: 1fr 3fr 2fr 2fr 1.5fr 0.5fr;
+  align-items: center;
+  padding: 12px 25px; /* 행 내부 좌우 패딩 */
+  gap: 15px; /* 컬럼 간 간격 */
 
   @media (max-width: 1200px) {
-    flex-direction: column; /* 화면 작으면 세로 배치 */
+    // 화면 작아질 때 비율 조정
+    grid-template-columns: 1.5fr 3fr 2fr 1fr; // 스케줄, 위치 숨김 (예시)
+    & > *:nth-child(4), // Schedule 숨김
+     & > *:nth-child(5) {
+      // Location 숨김
+      display: none;
+    }
+  }
+  @media (max-width: 768px) {
+    // 더 작아질 때
+    grid-template-columns: 1fr 3fr 1fr; // 교수명 숨김 (예시)
+    & > *:nth-child(3) {
+      // Instructor 숨김
+      display: none;
+    }
   }
 `;
 
-const LeftColumn = styled.div`
-  flex: 1; /* 비율 조정 가능 */
-  min-width: 300px; /* 최소 너비 */
-`;
-
-const RightColumn = styled.div`
-  flex: 2; /* 비율 조정 가능 */
-`;
-
-const Card = styled.div`
-  background-color: ${(props) => props.theme.formContainerColor || "white"};
-  padding: 20px 25px;
-  border-radius: 15px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-  margin-bottom: 30px; /* 카드 아래 간격 */
-`;
-
-const CardTitle = styled.h3`
-  font-size: 1.2rem;
+// 테이블 헤더 스타일
+const TableHeader = styled(TableRowBase)`
+  color: ${(props) => props.theme.subTextColor};
+  font-size: 0.85rem;
   font-weight: 600;
+  border-bottom: 1px solid ${(props) => props.theme.btnColor || "#eee"};
+  padding-bottom: 10px;
+  margin-bottom: 5px; /* 헤더와 첫 행 사이 간격 */
+`;
+
+// 테이블 내용 행 스타일
+const TableRow = styled(TableRowBase)`
   color: ${(props) => props.theme.textColor};
-  margin: 0 0 20px 0;
-`;
+  font-size: 0.9rem;
 
-const VideoList = styled.ul`
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-`;
-
-const VideoListItem = styled.li<{ isActive: boolean }>`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 15px 0;
   border-bottom: 1px solid ${(props) => props.theme.btnColor || "#eee"};
   cursor: pointer;
-  transition: background-color 0.2s;
-  background-color: ${(props) =>
-    props.isActive ? `${props.theme.btnColor}20` : "transparent"}; // 활성 배경
+  transition: background-color 0.2s ease-in-out;
 
   &:last-child {
     border-bottom: none;
   }
 
   &:hover {
-    background-color: ${(props) =>
-      props.isActive
-        ? `${props.theme.btnColor}20`
-        : `${props.theme.subTextColor}10`};
+    background-color: ${(props) => props.theme.hoverBtnColor || "#f9f9f9"};
   }
 `;
 
-const VideoInfo = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-`;
-
-const VideoTitle = styled.span`
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: ${(props) => props.theme.textColor};
-`;
-
-const VideoMeta = styled.span`
-  font-size: 0.8rem;
-  color: ${(props) => props.theme.subTextColor};
-`;
-
-const VideoDuration = styled.span`
-  font-size: 0.8rem;
-  color: ${(props) => props.theme.subTextColor};
-  margin-left: 10px; /* 제목과의 간격 */
-`;
-
-const VideoPlayButton = styled.button`
-  background: none;
-  border: none;
-  color: ${(props) => props.theme.btnColor || "#1f6feb"};
-  cursor: pointer;
-  padding: 5px;
+// 테이블 셀 공통 스타일 (필요시 사용)
+const TableCell = styled.div`
   display: flex;
   align-items: center;
-  justify-content: center;
+  padding: 5px 0px;
+  gap: 8px; /* 셀 내부 아이콘/텍스트 간격 */
+  overflow: hidden; /* 내용 길어질 경우 */
+  text-overflow: ellipsis; /* 내용 길어질 경우 ... */
+  white-space: nowrap; /* 내용 길어질 경우 줄바꿈 방지 */
+`;
 
-  .material-symbols-outlined {
-    font-size: 1.8rem;
+// Status 뱃지 스타일
+const StatusBadge = styled.span`
+  background-color: #28a745; /* 초록색 배경 */
+  color: white;
+  padding: 3px 8px;
+  border-radius: 12px; /* 타원형 */
+  font-size: 0.75rem;
+  font-weight: 600;
+`;
+
+// 아이콘 스타일 (Material Symbols 사용 가정)
+const Icon = styled.span`
+  display: flex;
+  align-items: center;
+  font-size: 1.4rem; /* 아이콘 기본 크기 */
+  color: ${(props) => props.theme.textColor}; /* 기본 아이콘 색상 */
+
+  &.arrow-icon {
+    justify-self: flex-end; /* 화살표 아이콘 오른쪽 끝 정렬 */
+    color: ${(props) => props.theme.subTextColor};
   }
 `;
 
-// 오른쪽 컬럼 플레이어 및 분석 영역 (임시 플레이스홀더)
-const PlayerPlaceholder = styled.div`
-  background-color: #eee; // 임시 배경
-  border-radius: 10px;
-  width: 100%;
-  aspect-ratio: 16 / 9; /* 16:9 비율 유지 */
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: #888;
-  margin-bottom: 20px;
-`;
-
-const AnalysisPlaceholder = styled.div`
-  background-color: #eee; // 임시 배경
-  border-radius: 10px;
-  width: 100%;
-  height: 200px; /* 임시 높이 */
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: #888;
-  margin-bottom: 20px;
-`;
-
-// 로딩/에러 메시지
+// 로딩 및 에러 메시지 스타일
 const MessageContainer = styled.div`
   padding: 40px;
   text-align: center;
   color: ${(props) => props.theme.subTextColor};
 `;
 
-// --- Video 타입 정의 (API 응답 기반) ---
-interface Video {
-  id: number;
-  index: number; // 주차 정보로 활용 가능?
-  title: string;
-  duration: number; // 초 단위 가정
-  upload_at: string; // 날짜 형식 확인 필요
-  watched_percent: number;
+// --- Lecture 타입 정의 (API 응답 기반) ---
+interface Lecture {
+  lecture_id: number;
+  lecture_name: string;
+  instructor_name: string;
+  classroom: string;
+  schedule: string;
+  // status: string; // API에 없으므로 필요시 추가 처리
 }
 
-interface Video {
-  id: number;
-  index: number;
-  title: string;
-  duration: number;
-  upload_at: string;
-  watched_percent: number;
-}
-
-// --- LectureDetail Component ---
-const Courses = () => {
-  const { lectureId } = useParams<{ lectureId: string }>();
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  const [videos, setVideos] = useState<Video[]>([]);
-  const [lectureName, setLectureName] = useState<string>("Loading...");
-  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
+// --- Courses Component ---
+const StudentCourses = () => {
+  const [lectures, setLectures] = useState<Lecture[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [hlsSrc, setHlsSrc] = useState<string | null>(null);
-  const [playerLoading, setPlayerLoading] = useState<boolean>(false);
-  const [playerError, setPlayerError] = useState<string | null>(null);
-  const [currentPlayTime, setCurrentPlayTime] = useState<number>(0);
-  const [currentDuration, setCurrentDuration] = useState<number>(0);
-  const [initialWatchedPercent, setInitialWatchedPercent] = useState<number>(0);
-  const progressRef = useRef<{ videoId: number | null; percent: number }>({
-    videoId: null,
-    percent: 0,
-  });
-
-  const performSave = useCallback(async () => {
-    const { videoId, percent } = progressRef.current;
-    if (videoId !== null && percent > 0 && percent <= 100) {
-      console.log(
-        `[performSave] Saving progress for video ${videoId}: ${percent}%`
-      );
-      try {
-        await apiClient.post("/students/lecture/video/progress", {
-          video_id: videoId,
-          watched_percent: percent,
-        });
-        console.log(`[performSave] Success for video ${videoId}`);
-      } catch (err) {
-        console.error(`[performSave] Failed for video ${videoId}:`, err);
-      }
-    }
-  }, []);
-
-  const debouncedSaveProgress = useCallback(debounce(performSave, 5000), [
-    performSave,
-  ]);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    return () => {
-      console.log("[Unmount Effect] Triggering final save attempt...");
-      debouncedSaveProgress.cancel();
-      performSave();
-    };
-  }, [performSave, debouncedSaveProgress]);
-
-  useEffect(() => {
-    const resetPercent =
-      progressRef.current.videoId !== (selectedVideo?.id ?? null);
-    progressRef.current = {
-      videoId: selectedVideo?.id ?? null,
-      percent: resetPercent ? 0 : progressRef.current.percent,
-    };
-  }, [selectedVideo]);
-
-  const fetchHlsLink = useCallback(async (videoId: number) => {
-    if (videoId === null || videoId === undefined) return;
-    setPlayerLoading(true);
-    setPlayerError(null);
-    setHlsSrc(null);
-    setInitialWatchedPercent(0);
-    try {
-      console.log(`[fetchHlsLink] Fetching HLS link for video ID: ${videoId}`);
-      const response = await apiClient.post<{
-        s3_link: string;
-        watched_percent: number;
-      }>("/students/lecture/video/link", { video_id: videoId });
-      console.log(`[fetchHlsLink] API Response for ${videoId}:`, response.data);
-      if (response.data?.s3_link) {
-        setHlsSrc(response.data.s3_link);
-        setInitialWatchedPercent(response.data.watched_percent || 0);
-      } else {
-        throw new Error("비디오 링크를 가져올 수 없습니다.");
-      }
-    } catch (err: any) {
-      console.error(
-        `[fetchHlsLink] Error fetching HLS link for ${videoId}:`,
-        err
-      );
-      setPlayerError(err.message || "비디오 링크 로딩 중 오류 발생");
-    } finally {
-      setPlayerLoading(false);
-    }
-  }, []); // 의존성 없음
-
-  useEffect(() => {
-    if (!lectureId) {
-      setError("Lecture ID not found.");
-      setLoading(false);
-      return;
-    }
-    const fetchInitialData = async () => {
+    const fetchLectures = async () => {
       setLoading(true);
       setError(null);
-      const passedLectureName = location.state?.lectureName;
-      setLectureName(passedLectureName || `Lecture ID ${lectureId}`);
       try {
-        const lectureIdNumber = parseInt(lectureId, 10);
-        if (isNaN(lectureIdNumber))
-          throw new Error("Invalid Lecture ID format.");
-        const response = await apiClient.post<{ videos: Video[] }>(
-          "/students/lecture/video",
-          { lecture_id: lectureIdNumber }
+        // apiClient를 사용하여 데이터 요청 (자동 토큰 처리)
+        const response = await apiClient.get<{ lectures: Lecture[] }>(
+          "/students/lecture"
         );
-        const fetchedVideos = response.data.videos || [];
-        setVideos(fetchedVideos);
-        if (fetchedVideos.length > 0) {
-          setSelectedVideo(fetchedVideos[0]);
-          await fetchHlsLink(fetchedVideos[0].id);
-        } else {
-          setHlsSrc(null);
-        }
+        setLectures(response.data.lectures || []);
       } catch (err: any) {
-        console.error("Failed to fetch initial data:", err);
-        setError(err.message || "강의 정보를 불러오는데 실패했습니다.");
-        setLectureName("Error Loading Lecture");
+        console.error("Failed to fetch lectures:", err);
+        setError(err.message || "강의 목록을 불러오는데 실패했습니다.");
       } finally {
         setLoading(false);
       }
     };
-    fetchInitialData();
-  }, [lectureId, location.state, fetchHlsLink]);
 
-  const formatDuration = (seconds: number): string => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes.toString().padStart(2, "0")}:${remainingSeconds
-      .toString()
-      .padStart(2, "0")}`;
+    fetchLectures();
+  }, []); // 컴포넌트 마운트 시 1회 실행
+
+  const handleRowClick = (lectureId: number) => {
+    // TODO: 실제 강의 상세 페이지 경로로 수정
+    navigate(`/student/courses/${lectureId}`);
   };
 
-  const handleTimeUpdate = useCallback(
-    (time: number, duration: number) => {
-      setCurrentPlayTime(time);
-      if (duration && !isNaN(duration) && duration > 0) {
-        setCurrentDuration(duration);
-        const percent = Math.round((time / duration) * 100);
-        const currentPercentInRef = progressRef.current.percent;
-        const newPercent =
-          percent >= 0 && percent <= 100 ? percent : currentPercentInRef;
-        if (newPercent > currentPercentInRef) {
-          progressRef.current.percent = newPercent;
-          debouncedSaveProgress();
-        }
-      }
-    },
-    [debouncedSaveProgress]
-  );
-
-  const handleVideoSelect = useCallback(
-    async (video: Video) => {
-      if (progressRef.current.videoId === video.id) {
-        console.log(
-          `[handleVideoSelect] Clicked the same video (${video.id}). Skipping.`
-        );
-        return;
-      }
-      console.log(
-        `[handleVideoSelect] New video selected: ${video.id}. Saving progress for previous video: ${progressRef.current.videoId}`
-      );
-      debouncedSaveProgress.cancel();
-      await performSave();
-      setCurrentPlayTime(0);
-      setCurrentDuration(0);
-      setHlsSrc(null);
-      setPlayerError(null);
-      setInitialWatchedPercent(0);
-      setSelectedVideo(video);
-      await fetchHlsLink(video.id);
-    },
-    [performSave, debouncedSaveProgress, fetchHlsLink]
-  );
-
-  if (loading)
-    return <MessageContainer>Loading lecture details...</MessageContainer>;
-  if (error) return <MessageContainer>Error: {error}</MessageContainer>;
-
-  // --- JSX Structure using Assumed Styled Components ---
-  // Make sure to import the actual styled components where needed
   return (
-    <DetailPageContainer>
-      <Breadcrumb>&gt; Courses / {lectureName}</Breadcrumb>
-      <ContentLayout>
-        <LeftColumn>
-          <Card>
-            <CardTitle>Course Schedule</CardTitle>
-            <VideoList>
-              {videos.length > 0 ? (
-                videos.map((video) => (
-                  <VideoListItem
-                    key={video.id}
-                    isActive={selectedVideo?.id === video.id}
-                    onClick={() => handleVideoSelect(video)}
-                  >
-                    <VideoInfo>
-                      <VideoMeta>Week {video.index + 1}</VideoMeta>
-                      <VideoTitle>
-                        Chapter {video.index + 1}. {video.title}
-                      </VideoTitle>
-                      <VideoMeta>
-                        {new Date(video.upload_at).toLocaleDateString()}
-                      </VideoMeta>
-                    </VideoInfo>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "10px",
-                      }}
-                    >
-                      <VideoDuration>
-                        {formatDuration(video.duration)}
-                      </VideoDuration>
-                      <VideoPlayButton title={`Play ${video.title}`}>
-                        <span className="material-symbols-outlined">
-                          play_circle
-                        </span>
-                      </VideoPlayButton>
-                    </div>
-                  </VideoListItem>
-                ))
-              ) : (
-                <p>No videos available for this lecture.</p>
-              )}
-            </VideoList>
-          </Card>
-        </LeftColumn>
+    <CoursesContainer>
+      <MainTitle>Courses</MainTitle>
 
-        <RightColumn>
-          <Card>
-            {playerLoading && (
-              <MessageContainer>Loading video...</MessageContainer>
+      <CoursesListCard>
+        {loading && <MessageContainer>Loading lectures...</MessageContainer>}
+        {error && <MessageContainer>Error: {error}</MessageContainer>}
+        {!loading && !error && (
+          <Table>
+            {/* 테이블 헤더 */}
+            <TableHeader>
+              <div>Status</div>
+              <div>Course</div>
+              <div>Instructor Name</div>
+              <div>Schedule</div>
+              <div>Location</div>
+              <div></div> {/* Action 컬럼 헤더 (내용 없음) */}
+            </TableHeader>
+            {/* 테이블 내용 */}
+            {lectures.length > 0 ? (
+              lectures.map((lecture) => (
+                <TableRow
+                  key={lecture.lecture_id}
+                  onClick={() => handleRowClick(lecture.lecture_id)}
+                >
+                  {/* Status */}
+                  <TableCell>
+                    <Icon className="material-symbols-outlined">
+                      account_circle
+                    </Icon>
+                    {/* API에 status 없으므로 임시 표시 */}
+                    <StatusBadge>Current</StatusBadge>
+                  </TableCell>
+                  {/* Course */}
+                  <TableCell
+                    title={`${lecture.lecture_name} (ID: ${lecture.lecture_id})`}
+                  >
+                    {lecture.lecture_name} (Lecture ID {lecture.lecture_id})
+                  </TableCell>
+                  {/* Instructor Name */}
+                  <TableCell>{lecture.instructor_name}</TableCell>
+                  {/* Schedule */}
+                  <TableCell>{lecture.schedule}</TableCell>
+                  {/* Location */}
+                  <TableCell>{lecture.classroom}</TableCell>
+                  {/* Action Icon */}
+                  <TableCell style={{ justifyContent: "flex-end" }}>
+                    {" "}
+                    {/* 아이콘 오른쪽 정렬 */}
+                    <Icon className="material-symbols-outlined arrow-icon">
+                      chevron_right
+                    </Icon>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <MessageContainer>No lectures found.</MessageContainer>
             )}
-            {playerError && (
-              <MessageContainer>Error: {playerError}</MessageContainer>
-            )}
-            {!playerLoading && !playerError && hlsSrc && selectedVideo && (
-              <HlsPlayer
-                key={hlsSrc}
-                src={hlsSrc}
-                onTimeUpdate={handleTimeUpdate}
-                initialSeekPercent={initialWatchedPercent}
-              />
-            )}
-            {!playerLoading && !playerError && !hlsSrc && selectedVideo && (
-              <MessageContainer>Could not load video source.</MessageContainer>
-            )}
-            {!playerLoading && !playerError && !hlsSrc && !selectedVideo && (
-              <PlayerPlaceholder>
-                Select a video from the list
-              </PlayerPlaceholder>
-            )}
-          </Card>
-          <AnalysisPlaceholder>
-            Drowsiness Summary Placeholder
-          </AnalysisPlaceholder>
-          {/* <StopButton>수강중지버튼</StopButton> */}{" "}
-          {/* StopButton 정의가 없으므로 주석 처리 */}
-        </RightColumn>
-      </ContentLayout>
-    </DetailPageContainer>
+          </Table>
+        )}
+      </CoursesListCard>
+    </CoursesContainer>
   );
 };
 
-export default Courses;
+export default StudentCourses;
