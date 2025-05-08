@@ -1,5 +1,5 @@
-// src/screen/student/Setting.tsx (새 파일 또는 기존 파일 수정)
-import React, { useState, useEffect } from "react";
+// src/screen/student/Setting.tsx (완성)
+import React, { useState, useEffect, useRef } from "react"; // useRef 추가
 import styled from "styled-components";
 import apiClient from "../../api/apiClient"; // 경로 확인 필요
 
@@ -7,8 +7,8 @@ import apiClient from "../../api/apiClient"; // 경로 확인 필요
 
 const SettingsContainer = styled.div`
   width: 100%;
-  max-width: 700px; /* 최대 너비 설정 */
-  margin: 0 auto; /* 페이지 중앙 정렬 */
+  max-width: 700px;
+  margin: 0 auto;
   padding: 20px;
 `;
 
@@ -16,7 +16,7 @@ const Breadcrumb = styled.div`
   font-size: 15px;
   font-weight: bold;
   color: ${(props) => props.theme.textColor};
-  margin-bottom: 30px; /* 하단 요소와의 간격 */
+  margin-bottom: 30px;
 `;
 
 const ProfileCard = styled.div`
@@ -26,47 +26,64 @@ const ProfileCard = styled.div`
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
   display: flex;
   flex-direction: column;
-  align-items: center; /* 내용 중앙 정렬 */
-  gap: 30px; /* 이미지와 폼 사이 간격 */
+  align-items: center;
+  gap: 30px;
 `;
 
-const ProfileImageContainer = styled.div`
+// 이미지 컨테이너를 label로 사용하여 클릭 시 파일 입력 트리거
+const ProfileImageLabel = styled.label`
   width: 150px;
   height: 150px;
-  border-radius: 50%; /* 원형 이미지 */
+  border-radius: 50%;
   overflow: hidden;
-  background-color: #eee; /* 이미지 없을 때 배경색 */
+  background-color: #eee;
   display: flex;
   justify-content: center;
   align-items: center;
-  border: 3px solid white; /* 흰색 테두리 */
+  border: 3px solid white;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  cursor: pointer; /* 클릭 가능 표시 */
+  position: relative; /* 아이콘 오버레이 위함 */
+
+  &:hover::after {
+    /* 호버 시 수정 아이콘 표시 (선택 사항) */
+    content: "edit"; /* Material Symbols 아이콘 이름 */
+    font-family: "Material Symbols Outlined"; /* Material Symbols 폰트 적용 */
+    position: absolute;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.4);
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 40px;
+    font-variation-settings: "FILL" 1; // 아이콘 채우기
+  }
 `;
 
 const ProfileImage = styled.img`
   width: 100%;
   height: 100%;
-  object-fit: cover; /* 이미지 비율 유지 */
+  object-fit: cover;
 `;
 
-// 기본 아바타 아이콘 스타일
 const DefaultAvatar = styled.span`
-  font-size: 80px; /* 아이콘 크기 */
-  color: #ccc; /* 아이콘 색상 */
+  font-size: 80px;
+  color: #ccc;
 `;
 
 const ProfileForm = styled.form`
   width: 100%;
-  max-width: 400px; /* 폼 너비 제한 */
+  max-width: 400px;
   display: flex;
   flex-direction: column;
-  gap: 20px; /* 폼 그룹 간 간격 */
+  gap: 20px;
 `;
 
 const FormGroup = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 8px; /* 라벨과 인풋 사이 간격 */
+  gap: 8px;
 `;
 
 const Label = styled.label`
@@ -75,7 +92,6 @@ const Label = styled.label`
   color: ${(props) => props.theme.textColor};
 `;
 
-// 기존 Input 스타일 재사용 또는 약간 수정
 const StyledInput = styled.input`
   width: 100%;
   padding: 0.9rem 1rem;
@@ -89,28 +105,23 @@ const StyledInput = styled.input`
   &::placeholder {
     color: ${(props) => props.theme.subTextColor};
   }
-
   &:focus {
     outline: none;
     border-color: ${(props) => props.theme.btnColor};
     box-shadow: 0 0 0 2px ${(props) => props.theme.btnColor}4D;
   }
-
-  /* 읽기 전용 스타일 */
   &:read-only {
-    background-color: #f0f0f0; /* 회색 배경 */
+    background-color: #f0f0f0;
     cursor: not-allowed;
     opacity: 0.7;
   }
   &:disabled {
-    /* 혹시 disabled 사용할 경우 대비 */
     background-color: #f0f0f0;
     cursor: not-allowed;
     opacity: 0.7;
   }
 `;
 
-// 기존 버튼 스타일 재사용
 const SaveButton = styled.button`
   width: 100%;
   padding: 0.9rem;
@@ -121,7 +132,7 @@ const SaveButton = styled.button`
   font-size: 1.1rem;
   font-weight: 600;
   cursor: pointer;
-  margin-top: 10px; /* 위 요소와의 간격 */
+  margin-top: 10px;
   transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
 
   &:hover:not(:disabled) {
@@ -137,13 +148,22 @@ const SaveButton = styled.button`
 `;
 
 const MessageContainer = styled.div`
-  /* 로딩/에러 */
+  padding: 40px;
+  text-align: center;
+  color: ${(props) => props.theme.subTextColor};
 `;
 const ErrorMessage = styled.p`
-  /* 에러 메시지 */
+  color: #e74c3c;
+  font-size: 0.85rem;
+`;
+const ImageUploadMessage = styled.p`
+  font-size: 0.85rem;
+  text-align: center;
+  margin-top: 10px;
+  color: ${(props) => props.theme.subTextColor};
 `;
 
-// --- Profile 데이터 타입 정의 ---
+// --- Profile 데이터 타입 ---
 interface ProfileData {
   email: string;
   name: string | null;
@@ -152,12 +172,15 @@ interface ProfileData {
 
 // --- Setting Component (Student) ---
 const StudentSetting = () => {
-  // 컴포넌트 이름 변경 (라우터 설정과 일치시키기 위해)
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
-  const [nameInput, setNameInput] = useState<string>(""); // 이름 입력 상태
+  const [nameInput, setNameInput] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState<boolean>(false); // 저장 로딩 상태
+  const [isSavingName, setIsSavingName] = useState<boolean>(false); // 이름 저장 로딩
+  const [isUploadingImage, setIsUploadingImage] = useState<boolean>(false); // 이미지 업로드 로딩
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null); // 이미지 미리보기 URL
+
+  const fileInputRef = useRef<HTMLInputElement>(null); // 파일 input 참조
 
   // 프로필 정보 가져오기
   useEffect(() => {
@@ -167,8 +190,9 @@ const StudentSetting = () => {
       try {
         const response = await apiClient.get<ProfileData>("/students/profile");
         setProfileData(response.data);
-        // API에서 받은 이름으로 nameInput 초기화 (null이면 빈 문자열)
         setNameInput(response.data.name || "");
+        // 프로필 이미지 URL 초기화 (미리보기 제거)
+        setImagePreviewUrl(null);
       } catch (err: any) {
         console.error("Failed to fetch profile:", err);
         setError(err.message || "Failed to load profile information.");
@@ -179,37 +203,86 @@ const StudentSetting = () => {
     fetchProfile();
   }, []);
 
-  // 프로필 업데이트 핸들러 (API 명세 필요)
-  const handleProfileUpdate = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault(); // 폼 기본 제출 방지
-    setIsSaving(true);
+  // --- 이름 업데이트 핸들러 ---
+  const handleNameUpdate = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    // 변경 사항 없으면 실행 안 함
+    if (nameInput === (profileData?.name || "")) return;
+
+    setIsSavingName(true);
     setError(null);
+    try {
+      const response = await apiClient.patch<{ message: string; name: string }>(
+        "/students/profile/name",
+        { name: nameInput }
+      );
+      // 로컬 상태 업데이트
+      setProfileData((prev) =>
+        prev ? { ...prev, name: response.data.name } : null
+      );
+      alert(response.data.message || "Name updated successfully!");
+    } catch (err: any) {
+      console.error("Failed to update name:", err);
+      setError(err.message || "Failed to update name.");
+    } finally {
+      setIsSavingName(false);
+    }
+  };
 
-    console.log("Attempting to update profile with name:", nameInput);
-    alert("프로필 저장 API가 아직 정의되지 않았습니다."); // 임시 알림
+  // --- 파일 선택 핸들러 ---
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // 이미지 미리보기 생성
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreviewUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
 
-    // TODO: 프로필 업데이트 API 호출 로직 구현 필요
-    // try {
-    //   await apiClient.patch('/students/profile', { // 예시: PATCH 메서드 사용
-    //     name: nameInput,
-    //     // profile_image_url 업데이트 로직은 별도 필요 (파일 업로드 등)
-    //   });
-    //   alert("Profile updated successfully!");
-    //   // 성공 시 profileData 상태 업데이트 또는 다시 fetch
-    //   setProfileData(prev => prev ? {...prev, name: nameInput} : null);
-    // } catch (err: any) {
-    //   console.error("Failed to update profile:", err);
-    //   setError(err.message || "Failed to update profile.");
-    // } finally {
-    //   setIsSaving(false);
-    // }
+      // 이미지 업로드 즉시 실행
+      uploadProfileImage(file);
+    }
+    // 파일 선택 취소 시 값 초기화 (중요)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
-    // 임시로 로딩 상태 해제
-    setTimeout(() => setIsSaving(false), 500);
+  // --- 이미지 업로드 함수 ---
+  const uploadProfileImage = async (file: File) => {
+    setIsUploadingImage(true);
+    setError(null);
+    const formData = new FormData();
+    formData.append("file", file); // API가 요구하는 필드 이름 'file'
+
+    try {
+      const response = await apiClient.post<{ profile_image_url: string }>(
+        "/students/profile/image",
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } } // multipart 헤더 명시 (Axios가 자동 설정할 수도 있음)
+      );
+
+      // 성공 시 로컬 상태 업데이트
+      setProfileData((prev) =>
+        prev
+          ? { ...prev, profile_image_url: response.data.profile_image_url }
+          : null
+      );
+      setImagePreviewUrl(null); // 미리보기 제거
+      alert("Profile image updated successfully!");
+    } catch (err: any) {
+      console.error("Failed to upload image:", err);
+      setError(err.message || "Failed to upload image.");
+      setImagePreviewUrl(null); // 실패 시 미리보기 제거
+    } finally {
+      setIsUploadingImage(false);
+    }
   };
 
   if (loading) return <MessageContainer>Loading profile...</MessageContainer>;
-  if (error)
+  // 초기 로딩 실패 시 에러 표시
+  if (error && !profileData)
     return (
       <MessageContainer>
         <ErrorMessage>{error}</ErrorMessage>
@@ -218,24 +291,42 @@ const StudentSetting = () => {
   if (!profileData)
     return <MessageContainer>No profile data found.</MessageContainer>;
 
+  console.log("Profile Data State:", profileData); // <-- 2. 상태 값 확인
+  // 표시할 이미지 URL 결정 (미리보기 > 프로필 데이터 > null)
+  const displayImageUrl = imagePreviewUrl || profileData.profile_image_url;
+  console.log("Display Image URL:", displayImageUrl);
+
   return (
     <SettingsContainer>
       <Breadcrumb>&gt; Profile</Breadcrumb>
 
       <ProfileCard>
-        <ProfileImageContainer>
-          {profileData.profile_image_url ? (
-            <ProfileImage src={profileData.profile_image_url} alt="Profile" />
+        {/* 숨겨진 파일 입력 */}
+        <input
+          type="file"
+          accept="image/*"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          style={{ display: "none" }}
+        />
+        {/* 이미지 클릭 시 파일 입력 트리거 */}
+        <ProfileImageLabel title="Click to change profile picture">
+          {isUploadingImage ? (
+            <div>Uploading...</div> // 업로드 중 표시
+          ) : displayImageUrl ? (
+            <ProfileImage src={displayImageUrl} alt="Profile" />
           ) : (
-            // 프로필 이미지 없으면 기본 아바타 아이콘 표시
             <DefaultAvatar className="material-symbols-outlined">
               account_circle
             </DefaultAvatar>
           )}
-          {/* TODO: 이미지 업로드 버튼/기능 추가 */}
-        </ProfileImageContainer>
+        </ProfileImageLabel>
+        {/* 업로드 중 에러 메시지 */}
+        {error && isUploadingImage === false && (
+          <ErrorMessage>{error}</ErrorMessage>
+        )}
 
-        <ProfileForm onSubmit={handleProfileUpdate}>
+        <ProfileForm onSubmit={handleNameUpdate}>
           <FormGroup>
             <Label htmlFor="username">Username</Label>
             <StyledInput
@@ -244,6 +335,7 @@ const StudentSetting = () => {
               placeholder="Enter Username"
               value={nameInput}
               onChange={(e) => setNameInput(e.target.value)}
+              disabled={isUploadingImage || isSavingName} // 작업 중 비활성화
             />
           </FormGroup>
 
@@ -253,19 +345,22 @@ const StudentSetting = () => {
               id="email"
               type="email"
               value={profileData.email}
-              readOnly // 이메일은 수정 불가 (readOnly 사용)
+              readOnly
             />
           </FormGroup>
 
-          {/* 저장 버튼 */}
           <SaveButton
             type="submit"
-            disabled={isSaving || nameInput === (profileData.name || "")}
+            disabled={
+              isSavingName ||
+              isUploadingImage ||
+              nameInput === (profileData.name || "")
+            }
           >
-            {isSaving ? "Saving..." : "Save"}
+            {isSavingName ? "Saving..." : "Save Name"}
           </SaveButton>
-          {/* 저장 실패 시 에러 메시지 표시 */}
-          {error && !loading && (
+          {/* 이름 저장 실패 시 에러 메시지 */}
+          {error && isSavingName === false && (
             <ErrorMessage style={{ textAlign: "center", marginTop: "10px" }}>
               {error}
             </ErrorMessage>
@@ -276,5 +371,4 @@ const StudentSetting = () => {
   );
 };
 
-// 컴포넌트 이름 확인 (라우터 설정과 일치 필요)
 export default StudentSetting;
