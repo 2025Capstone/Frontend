@@ -31,6 +31,8 @@ import AdminMain from "../screen/admin/Main";
 import AdminStudentUserList from "../screen/admin/user/StudentList";
 import AdminInstructorUserList from "../screen/admin/user/ApprovedInstructorList";
 import AdminUnApprovedInstructorUserList from "../screen/admin/user/UnapprovedInstructorList";
+import CourseManage from "../screen/admin/CourseManage";
+
 // 보호 라우트 컴포넌트 import
 import ProtectedRoute from "../components/auth/ProtectedRoute"; // 경로 확인
 import RoleProtectedRoute from "../components/auth/RoleProtectedRoute"; // 경로 확인
@@ -142,7 +144,7 @@ const router = createBrowserRouter([
                     element: <AdminInstructorUserList />, // 학생 관리 페이지 컴포넌트
                   },
                   {
-                    path:"unauthorized",
+                    path: "unauthorized",
                     element: <AdminUnApprovedInstructorUserList />,
                   },
                   // TODO: path: "instructor", element: <AdminInstructorUserList /> 등 추가 가능
@@ -153,7 +155,7 @@ const router = createBrowserRouter([
               // 강의 관리 섹션 (예시)
               {
                 path: "course", // /admin/course
-                element: <div>Admin Course Management Placeholder</div>,
+                element: <CourseManage />,
               },
               { index: true, element: <Navigate to="user/student" replace /> },
             ],
