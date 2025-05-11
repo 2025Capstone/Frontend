@@ -298,22 +298,10 @@ const StudentSetting = () => {
 
   return (
     <SettingsContainer>
-      <Breadcrumb>&gt; Profile</Breadcrumb>
-
+      <Breadcrumb>Setting &gt; Profile</Breadcrumb>
       <ProfileCard>
-        {/* 숨겨진 파일 입력 */}
-        <input
-          type="file"
-          accept="image/*"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          style={{ display: "none" }}
-        />
-        {/* 이미지 클릭 시 파일 입력 트리거 */}
-        <ProfileImageLabel title="Click to change profile picture">
-          {isUploadingImage ? (
-            <div>Uploading...</div> // 업로드 중 표시
-          ) : displayImageUrl ? (
+        <ProfileImageLabel htmlFor="fileInput">
+          {displayImageUrl ? (
             <ProfileImage src={displayImageUrl} alt="Profile" />
           ) : (
             <DefaultAvatar className="material-symbols-outlined">
@@ -321,26 +309,21 @@ const StudentSetting = () => {
             </DefaultAvatar>
           )}
         </ProfileImageLabel>
-        {/* 업로드 중 에러 메시지 */}
-        {error && isUploadingImage === false && (
-          <ErrorMessage>{error}</ErrorMessage>
+        <input
+          id="fileInput"
+          type="file"
+          accept="image/*"
+          onChange={handleFileChange}
+          style={{ display: "none" }}
+          ref={fileInputRef}
+        />
+        {isUploadingImage && (
+          <ImageUploadMessage>Uploading Image...</ImageUploadMessage>
         )}
 
         <ProfileForm onSubmit={handleNameUpdate}>
           <FormGroup>
-            <Label htmlFor="username">Username</Label>
-            <StyledInput
-              id="username"
-              type="text"
-              placeholder="Enter Username"
-              value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-              disabled={isUploadingImage || isSavingName} // 작업 중 비활성화
-            />
-          </FormGroup>
-
-          <FormGroup>
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">E-mail</Label>
             <StyledInput
               id="email"
               type="email"
@@ -349,23 +332,23 @@ const StudentSetting = () => {
             />
           </FormGroup>
 
-          <SaveButton
-            type="submit"
-            disabled={
-              isSavingName ||
-              isUploadingImage ||
-              nameInput === (profileData.name || "")
-            }
-          >
-            {isSavingName ? "Saving..." : "Save Name"}
+          <FormGroup>
+            <Label htmlFor="name">Name</Label>
+            <StyledInput
+              id="name"
+              type="text"
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              disabled={isSavingName}
+            />
+          </FormGroup>
+
+          <SaveButton type="submit" disabled={isSavingName}>
+            {isSavingName ? "Saving..." : "Save"}
           </SaveButton>
-          {/* 이름 저장 실패 시 에러 메시지 */}
-          {error && isSavingName === false && (
-            <ErrorMessage style={{ textAlign: "center", marginTop: "10px" }}>
-              {error}
-            </ErrorMessage>
-          )}
         </ProfileForm>
+
+        {error && <ErrorMessage>{error}</ErrorMessage>}
       </ProfileCard>
     </SettingsContainer>
   );
