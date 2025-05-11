@@ -4,6 +4,7 @@ import styled from "styled-components";
 import apiClient from "../../api/apiClient"; // 경로 확인
 import { useNavigate } from "react-router-dom"; // 필요시 사용
 import NewLectureModal from "./NewLectureModal";
+import ManageLectureStudentsModal from "./ManageLectureStudentModal";
 
 // --- Styled Components (AdminStudentUserList.tsx 와 유사한 스타일 재사용/참조) ---
 const AdminPageContainer = styled.div`
@@ -174,13 +175,17 @@ interface AdminLecture {
   id: number;
   name: string;
   instructor_name: string;
-  // API에 없는 필드는 필요시 추가
-  // schedule?: string;
-  // location?: string;
+  schedule: string;
+  classroom: string;
 }
 
 // --- CourseManage Component ---
 const CourseManage = () => {
+  const [isManageStudentsModalOpen, setIsManageStudentsModalOpen] =
+    useState(false);
+  const [selectedLectureForStudentMgmt, setSelectedLectureForStudentMgmt] =
+    useState<AdminLecture | null>(null);
+
   const [lectures, setLectures] = useState<AdminLecture[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -194,7 +199,9 @@ const CourseManage = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await apiClient.get<{ lectures: AdminLecture[] }>('/admin/lectures/all');
+      const response = await apiClient.get<{ lectures: AdminLecture[] }>(
+        "/admin/lectures/all"
+      );
       setLectures(response.data.lectures || []);
     } catch (err: any) {
       console.error("Failed to fetch admin lectures:", err);
@@ -219,9 +226,20 @@ const CourseManage = () => {
     );
   }, [lectures, searchTerm]);
 
-  const handleManageStudents = (lectureId: number) => {
-    alert(`Manage students for lecture ${lectureId} - Navigation or Modal`);
-    // 예: navigate(`/admin/course/${lectureId}/students`);
+  const handleOpenManageStudentsModal = (lecture: AdminLecture) => {
+    setSelectedLectureForStudentMgmt(lecture);
+    setIsManageStudentsModalOpen(true);
+  };
+
+  const handleCloseManageStudentsModal = () => {
+    setIsManageStudentsModalOpen(false);
+    setSelectedLectureForStudentMgmt(null);
+  };
+  const handleEnrollmentUpdated = () => {
+    // 필요시 강의 목록이나 특정 강의 정보를 새로고침할 수 있습니다.
+    // 여기서는 단순히 모달을 닫은 후 CourseManage의 목록을 다시 불러오진 않습니다.
+    // 필요하다면 fetchLectures() 호출
+    console.log("Enrollment updated, modal will close.");
   };
 
   const handleLectureSettings = (lectureId: number) => {
@@ -270,7 +288,7 @@ const CourseManage = () => {
                   <Th>Professor</Th>
                   <Th>Schedule</Th>
                   <Th>Location</Th>
-                  <Th>Students</Th>
+                  {/* <Th>Students</Th> */}
                   <Th></Th> {/* Settings Icon Column */}
                 </Tr>
               </Thead>
@@ -281,15 +299,15 @@ const CourseManage = () => {
                       <Td>{lecture.id}</Td>
                       <Td>{lecture.name}</Td>
                       <Td>{lecture.instructor_name}</Td>
-                      <Td>-</Td> {/* API에 Schedule 정보 없음 */}
-                      <Td>-</Td> {/* API에 Location 정보 없음 */}
-                      <Td>
+                      <Td>{lecture.schedule}</Td> {/* API에 Schedule 정보 없음 */}
+                      <Td>{lecture.classroom}</Td> {/* API에 Location 정보 없음 */}
+                      {/* <Td>
                         <ActionButton
-                          onClick={() => handleManageStudents(lecture.id)}
+                          onClick={() => handleOpenManageStudentsModal(lecture)}
                         >
                           Manage Students
                         </ActionButton>
-                      </Td>
+                      </Td> */}
                       <Td>
                         <SettingsIcon
                           onClick={() => handleLectureSettings(lecture.id)}
@@ -324,6 +342,16 @@ const CourseManage = () => {
         onClose={() => setIsNewLectureModalOpen(false)}
         onLectureCreated={handleLectureCreated} // 콜백 전달
       />
+      {/* 학생 관리 모달 렌더링 */}
+      {/* {selectedLectureForStudentMgmt && (
+        <ManageLectureStudentsModal
+          isOpen={isManageStudentsModalOpen}
+          onClose={handleCloseManageStudentsModal}
+          lectureId={selectedLectureForStudentMgmt.id}
+          lectureName={selectedLectureForStudentMgmt.name}
+          onEnrollmentUpdated={handleEnrollmentUpdated}
+        />
+      )} */}
     </AdminPageContainer>
   );
 };
