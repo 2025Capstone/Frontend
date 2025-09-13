@@ -72,10 +72,10 @@ function App() {
   const isDark = useThemeStore((state) => state.isDark);
   return (
     <ThemeProvider theme={isDark ? darktheme : lighttheme}>
-    <GlobalStyle />
-    <RouterProvider router={router} />
+      <GlobalStyle />
+      <RouterProvider router={router} />
     </ThemeProvider>
   );
 }
 
-export default App
+export default App;
