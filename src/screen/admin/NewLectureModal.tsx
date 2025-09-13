@@ -188,12 +188,10 @@ const NewLectureModal: React.FC<NewLectureModalProps> = ({ isOpen, onClose, onLe
     // schedule 문자열 조합 (요일 + 시간)
     // API가 "09:00~13:00" 형식이면 요일 정보는 어떻게? 일단 시간만 조합
     // 실제로는 요일 선택 + 시간 조합이 필요함 -> API 명세의 schedule 형식이 "Mon 09:00~10:00" 와 같다면
-    // const schedule = `${day} ${startTime}~${endTime}`;
-    // 현재 API 요청 예시는 schedule에 요일 정보가 없음, 시간만 있음
-    const schedule = `${startTime}~${endTime}`;
+    const schedule = `${day} ${startTime}~${endTime}`;
 
 
-    if (!lectureName || !instructorId || !schedule || !location) {
+    if (!lectureName || !instructorId || !day || !location) {
         setError("All fields are required.");
         setIsSubmitting(false);
         return;
