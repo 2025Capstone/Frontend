@@ -274,19 +274,36 @@ const ProfileEmail = styled.p`
   margin: 0;
 `;
 
-// --- Placeholder Data ---
-const todoItems = [
-  { name: "Lecture Name", week: 6, date: "04-29", time: "09:23" },
-  { name: "Lecture Name", week: 6, date: "04-30", time: "11:00" },
-  { name: "Lecture Name", week: 6, date: "05-01", time: "14:15" },
-];
-
 const formatDateWithDay = (date: Date): string => {
   const month = (date.getMonth() + 1).toString().padStart(2, "0");
   const dayOfMonth = date.getDate().toString().padStart(2, "0");
   const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const dayOfWeek = daysOfWeek[date.getDay()];
   return `${month}.${dayOfMonth}(${dayOfWeek})`;
+};
+
+const formatVideoTimestamp = (timestamp: string): string => {
+  const date = new Date(timestamp);
+  const month = (date.getMonth() + 1).toString().padStart(2, "0");
+  const day = date.getDate().toString().padStart(2, "0");
+  const hours = date.getHours().toString().padStart(2, "0");
+  const minutes = date.getMinutes().toString().padStart(2, "0");
+  return `${month}-${day} | ${hours}:${minutes}`;
+};
+
+const getWeekDateRange = (date: Date): string => {
+  const startOfWeek = new Date(date);
+  // Set to Sunday of the current week
+  startOfWeek.setDate(date.getDate() - date.getDay());
+  
+  const endOfWeek = new Date(startOfWeek);
+  // Set to Saturday of the current week
+  endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+  const formatDate = (d: Date) => 
+    `${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
+
+  return `${formatDate(startOfWeek)} ~ ${formatDate(endOfWeek)}`;
 };
 
 // --- Lecture 타입 정의 (API 응답 기반) ---
@@ -333,6 +350,8 @@ const Dashboard = () => {
   const tomorrow = new Date();
   tomorrow.setDate(today.getDate() + 1);
   const formattedTomorrow = formatDateWithDay(tomorrow);
+  
+  const weekDateRange = getWeekDateRange(today);
 
   useEffect(() => {
     const fetchLectures = async () => {
@@ -505,22 +524,31 @@ const Dashboard = () => {
       <Row>
         <WideCard>Detection Analytics (내용 추가 예정)</WideCard>
         <Card>
-          <CardTitle>To-do (04-29 ~ 05-06)</CardTitle>{" "}
-          {/* 날짜 범위 동적 처리 필요 */}
+          <CardTitle>To-do ({weekDateRange})</CardTitle>
           <List>
-            {todoItems.map((item, index) => (
-              <ListItem key={index}>
-                <ListIcon className="material-symbols-outlined play-icon">
-                  play_circle
-                </ListIcon>
-                <ItemText>
-                  {item.name} Video Week {item.week} <br />
-                  <span style={{ fontSize: "0.8rem", color: "#888" }}>
-                    {item.date} | {item.time}
-                  </span>
-                </ItemText>
+            {videosLoading ? (
+              <ListItem>
+                <ItemText>Loading...</ItemText>
               </ListItem>
-            ))}
+            ) : incompleteVideos.length > 0 ? (
+              incompleteVideos.map((video) => (
+                <ListItem key={video.video_id}>
+                  <ListIcon className="material-symbols-outlined play-icon">
+                    play_circle
+                  </ListIcon>
+                  <ItemText>
+                    {video.lecture_name} - {video.video_name} <br />
+                    <span style={{ fontSize: "0.8rem", color: "#888" }}>
+                      Last watched: {formatVideoTimestamp(video.timestamp)}
+                    </span>
+                  </ItemText>
+                </ListItem>
+              ))
+            ) : (
+              <ListItem>
+                <ItemText>No tasks to complete.</ItemText>
+              </ListItem>
+            )}
           </List>
         </Card>
       </Row>
