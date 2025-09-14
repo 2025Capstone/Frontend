@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import styled from "styled-components";
+import apiClient from "../../api/apiClient";
 
 // --- Styled Components for Dashboard ---
 const MainTitle = styled.h2`
@@ -243,55 +244,41 @@ const PlayButton = styled.button`
   }
 `;
 
+const ProfileCard = styled(Card)`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px;
+`;
+
+const ProfileImage = styled.img`
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid ${(props) => props.theme.btnColor};
+`;
+
+const ProfileName = styled.h4`
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: ${(props) => props.theme.textColor};
+  margin: 5px 0 0 0;
+`;
+
+const ProfileEmail = styled.p`
+  font-size: 0.85rem;
+  color: ${(props) => props.theme.subTextColor};
+  margin: 0;
+`;
+
 // --- Placeholder Data ---
-const todayClasses = [
-  { time: "09:00", name: "Course Name Example 1" },
-  { time: "11:00", name: "Another Course Name" },
-  { time: "14:00", name: "Third Course Today" },
-];
-const tomorrowClasses = [
-  { time: "10:00", name: "Tomorrow Course Intro" },
-  { time: "13:00", name: "Advanced Topic" },
-];
 const todoItems = [
   { name: "Lecture Name", week: 6, date: "04-29", time: "09:23" },
   { name: "Lecture Name", week: 6, date: "04-30", time: "11:00" },
   { name: "Lecture Name", week: 6, date: "05-01", time: "14:15" },
-];
-const learningCourses = [
-  // Placeholder 이미지 URL 사용
-  {
-    id: 1,
-    img: "https://via.placeholder.com/250x140/777/fff?text=Intro+to+AI",
-    title: "Introduction TO AI",
-    lecture: "Lecture Name",
-    professor: "Professor Name",
-    progress: 70,
-  },
-  {
-    id: 2,
-    img: "https://via.placeholder.com/250x140/4a90e2/fff?text=Data+Analysis",
-    title: "Data Analysis Techniques",
-    lecture: "Lecture Name",
-    professor: "Professor Name",
-    progress: 30,
-  },
-  {
-    id: 3,
-    img: "https://via.placeholder.com/250x140/cccccc/333?text=Generic+Course",
-    title: "Another Course Title",
-    lecture: "Lecture Name",
-    professor: "Professor Name",
-    progress: 90,
-  },
-  {
-    id: 4,
-    img: "https://via.placeholder.com/250x140/cccccc/333?text=Generic+Course",
-    title: "Another Course Title",
-    lecture: "Lecture Name",
-    professor: "Professor Name",
-    progress: 50,
-  },
 ];
 
 const formatDateWithDay = (date: Date): string => {
@@ -302,15 +289,143 @@ const formatDateWithDay = (date: Date): string => {
   return `${month}.${dayOfMonth}(${dayOfWeek})`;
 };
 
+// --- Lecture 타입 정의 (API 응답 기반) ---
+interface Lecture {
+  lecture_id: number;
+  lecture_name: string;
+  instructor_name: string;
+  classroom: string;
+  schedule: string;
+}
+
+// --- Profile 타입 정의 (API 응답 기반) ---
+interface Profile {
+  email: string;
+  name: string;
+  profile_image_url: string | null;
+}
+
+// --- IncompleteVideo 타입 정의 (API 응답 기반) ---
+interface IncompleteVideo {
+  video_id: number;
+  lecture_id: number;
+  lecture_name: string;
+  video_name: string;
+  instructor_name: string;
+  timestamp: string;
+  video_image_url: string | null;
+}
+
 // --- Dashboard Component ---
 
 const Dashboard = () => {
+  const [todayClasses, setTodayClasses] = useState<Lecture[]>([]);
+  const [tomorrowClasses, setTomorrowClasses] = useState<Lecture[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileLoading, setProfileLoading] = useState<boolean>(true);
+  const [incompleteVideos, setIncompleteVideos] = useState<IncompleteVideo[]>([]);
+  const [videosLoading, setVideosLoading] = useState<boolean>(true);
+
   const today = new Date();
   const formattedToday = formatDateWithDay(today);
 
   const tomorrow = new Date();
   tomorrow.setDate(today.getDate() + 1);
   const formattedTomorrow = formatDateWithDay(tomorrow);
+
+  useEffect(() => {
+    const fetchLectures = async () => {
+      setLoading(true);
+      try {
+        const response = await apiClient.get<{ lectures: Lecture[] }>(
+          "/students/lecture"
+        );
+        const allLectures = response.data.lectures || [];
+
+        const todayDate = new Date();
+        const todayDay = todayDate.getDay(); // 0 for Sunday, 1 for Monday...
+
+        const tomorrowDate = new Date();
+        tomorrowDate.setDate(todayDate.getDate() + 1);
+        const tomorrowDay = tomorrowDate.getDay();
+
+        // [수정 1] 한글과 영어 요일을 모두 매핑하도록 dayMap 확장
+        const dayMap: { [key: string]: number } = {
+          일: 0, Sun: 0,
+          월: 1, Mon: 1,
+          화: 2, Tue: 2,
+          수: 3, Wed: 3,
+          목: 4, Thu: 4,
+          금: 5, Fri: 5,
+          토: 6, Sat: 6,
+        };
+        
+        // [수정 2] 문자열 전체에서 한글/영어 요일을 찾는 더 유연한 정규식 사용
+        const getDaysFromSchedule = (schedule: string): string[] => {
+          // e.g., "월수 10:00", "Mon 09:00", "Tue,Thu 13:00" 등을 모두 처리
+          const regex = /(일|월|화|수|목|금|토|Sun|Mon|Tue|Wed|Thu|Fri|Sat)/g;
+          const matches = schedule.match(regex);
+          return matches || []; // 매칭되는 것이 없으면 빈 배열 반환
+        };
+
+        const todayLectures = allLectures.filter((lecture) => {
+          const scheduleDays = getDaysFromSchedule(lecture.schedule);
+          // 스케줄에 요일 정보가 없는 경우, 매일 있는 수업으로 간주하지 않으므로 필터링
+          if (scheduleDays.length === 0) return false; 
+          
+          return scheduleDays.some((dayStr) => dayMap[dayStr] === todayDay);
+        });
+
+        const tomorrowLectures = allLectures.filter((lecture) => {
+          const scheduleDays = getDaysFromSchedule(lecture.schedule);
+           if (scheduleDays.length === 0) return false;
+
+          return scheduleDays.some((dayStr) => dayMap[dayStr] === tomorrowDay);
+        });
+
+        setTodayClasses(todayLectures);
+        setTomorrowClasses(tomorrowLectures);
+      } catch (err) {
+        console.error("Failed to fetch lectures:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const fetchProfile = async () => {
+      setProfileLoading(true);
+      try {
+        const response = await apiClient.get<Profile>("/students/profile");
+        setProfile(response.data);
+      } catch (err) {
+        console.error("Failed to fetch profile:", err);
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+
+    const fetchIncompleteVideos = async () => {
+      setVideosLoading(true);
+      try {
+        const response = await apiClient.get<IncompleteVideo[]>("/students/recent-incomplete-videos");
+        setIncompleteVideos(response.data);
+      } catch (err) {
+        console.error("Failed to fetch incomplete videos:", err);
+      } finally {
+        setVideosLoading(false);
+      }
+    };
+
+    fetchLectures();
+    fetchProfile();
+    fetchIncompleteVideos();
+  }, []); // 의존성 배열은 비어있는 것이 맞습니다.
+
+  const getTimeFromSchedule = (schedule: string): string => {
+    const match = schedule.match(/\d{2}:\d{2}/);
+    return match ? match[0] : "";
+  };
 
   return (
     <DashboardContainer>
@@ -320,15 +435,25 @@ const Dashboard = () => {
           <CardTitle>Today's Class</CardTitle>
           <CardSubtitle>{formattedToday}</CardSubtitle>
           <List>
-            {todayClasses.map((item, index) => (
-              <ListItem key={index}>
-                <ListIcon className="material-symbols-outlined dot-icon">
-                  fiber_manual_record
-                </ListIcon>
-                <ItemTime>{item.time}</ItemTime>
-                <ItemText>{item.name}</ItemText>
+            {loading ? (
+              <ListItem>
+                <ItemText>Loading...</ItemText>
               </ListItem>
-            ))}
+            ) : todayClasses.length > 0 ? (
+              todayClasses.map((item) => (
+                <ListItem key={item.lecture_id}>
+                  <ListIcon className="material-symbols-outlined dot-icon">
+                    fiber_manual_record
+                  </ListIcon>
+                  <ItemTime>{getTimeFromSchedule(item.schedule)}</ItemTime>
+                  <ItemText>{item.lecture_name}</ItemText>
+                </ListItem>
+              ))
+            ) : (
+              <ListItem>
+                <ItemText>No classes today.</ItemText>
+              </ListItem>
+            )}
           </List>
         </Card>
         <Card>
@@ -336,20 +461,45 @@ const Dashboard = () => {
           <CardSubtitle>{formattedTomorrow}</CardSubtitle>{" "}
           {/* 날짜는 동적으로 받아와야 함 */}
           <List>
-            {tomorrowClasses.map((item, index) => (
-              <ListItem key={index}>
-                <ListIcon className="material-symbols-outlined dot-icon">
-                  fiber_manual_record
-                </ListIcon>
-                <ItemTime>{item.time}</ItemTime>
-                <ItemText>{item.name}</ItemText>
+            {loading ? (
+              <ListItem>
+                <ItemText>Loading...</ItemText>
               </ListItem>
-            ))}
+            ) : tomorrowClasses.length > 0 ? (
+              tomorrowClasses.map((item) => (
+                <ListItem key={item.lecture_id}>
+                  <ListIcon className="material-symbols-outlined dot-icon">
+                    fiber_manual_record
+                  </ListIcon>
+                  <ItemTime>{getTimeFromSchedule(item.schedule)}</ItemTime>
+                  <ItemText>{item.lecture_name}</ItemText>
+                </ListItem>
+              ))
+            ) : (
+              <ListItem>
+                <ItemText>No classes tomorrow.</ItemText>
+              </ListItem>
+            )}
           </List>
         </Card>
-        <PlaceholderCard>
-          여기 프로필 간략하게 넣는 것도 괜춘할듯
-        </PlaceholderCard>
+        <ProfileCard>
+          {profileLoading ? (
+            <ItemText>Loading profile...</ItemText>
+          ) : profile ? (
+            <>
+              <ProfileImage
+                src={profile.profile_image_url || 'https://via.placeholder.com/80x80.png?text=User'}
+                alt="Profile"
+              />
+              <div style={{ textAlign: 'center' }}>
+                <ProfileName>{profile.name}</ProfileName>
+                <ProfileEmail>{profile.email}</ProfileEmail>
+              </div>
+            </>
+          ) : (
+            <ItemText>Failed to load profile.</ItemText>
+          )}
+        </ProfileCard>
       </Row>
 
       <Row>
@@ -379,24 +529,28 @@ const Dashboard = () => {
       <ContinueLearningContainer>
         <SectionTitle>Continue Learning</SectionTitle>
         <CourseList>
-          {learningCourses.map((course) => (
-            <CourseCard key={course.id}>
-              <CourseImage src={course.img} alt={course.title} />
-              <CourseInfo>
-                <CourseTitle>{course.title}</CourseTitle>
-                <CourseDetail>{course.lecture}</CourseDetail>
-                <CourseDetail>{course.professor}</CourseDetail>
-              </CourseInfo>
-              <CourseFooter>
-                <ProgressBar>
-                  <Progress percentage={course.progress} />
-                </ProgressBar>
-                <PlayButton title="Continue course">
-                  <span className="material-symbols-outlined">play_arrow</span>
-                </PlayButton>
-              </CourseFooter>
-            </CourseCard>
-          ))}
+          {videosLoading ? (
+            <p>Loading courses...</p>
+          ) : incompleteVideos.length > 0 ? (
+            incompleteVideos.map((video) => (
+              <CourseCard key={video.video_id}>
+                <CourseImage src={video.video_image_url || 'https://via.placeholder.com/250x140/ccc/fff?text=Video'} alt={video.video_name} />
+                <CourseInfo>
+                  <CourseTitle>{video.lecture_name}</CourseTitle>
+                  <CourseDetail>{video.video_name}</CourseDetail>
+                  <CourseDetail>{video.instructor_name}</CourseDetail>
+                </CourseInfo>
+                <CourseFooter>
+                  <div style={{flexGrow: 1}} />
+                  <PlayButton title="Continue course">
+                    <span className="material-symbols-outlined">play_arrow</span>
+                  </PlayButton>
+                </CourseFooter>
+              </CourseCard>
+            ))
+          ) : (
+            <p>No recent incomplete videos.</p>
+          )}
         </CourseList>
       </ContinueLearningContainer>
     </DashboardContainer>
