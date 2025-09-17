@@ -302,7 +302,11 @@ const StudentSetting = () => {
       <ProfileCard>
         <ProfileImageLabel htmlFor="fileInput">
           {displayImageUrl ? (
-            <ProfileImage src={displayImageUrl} alt="Profile" />
+            <ProfileImage
+              src={displayImageUrl}
+              alt="Profile"
+              crossOrigin="anonymous"
+            />
           ) : (
             <DefaultAvatar className="material-symbols-outlined">
               account_circle
