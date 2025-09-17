@@ -295,13 +295,16 @@ const getWeekDateRange = (date: Date): string => {
   const startOfWeek = new Date(date);
   // Set to Sunday of the current week
   startOfWeek.setDate(date.getDate() - date.getDay());
-  
+
   const endOfWeek = new Date(startOfWeek);
   // Set to Saturday of the current week
   endOfWeek.setDate(startOfWeek.getDate() + 6);
 
-  const formatDate = (d: Date) => 
-    `${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
+  const formatDate = (d: Date) =>
+    `${(d.getMonth() + 1).toString().padStart(2, "0")}-${d
+      .getDate()
+      .toString()
+      .padStart(2, "0")}`;
 
   return `${formatDate(startOfWeek)} ~ ${formatDate(endOfWeek)}`;
 };
@@ -341,7 +344,9 @@ const Dashboard = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState<boolean>(true);
-  const [incompleteVideos, setIncompleteVideos] = useState<IncompleteVideo[]>([]);
+  const [incompleteVideos, setIncompleteVideos] = useState<IncompleteVideo[]>(
+    []
+  );
   const [videosLoading, setVideosLoading] = useState<boolean>(true);
 
   const today = new Date();
@@ -350,7 +355,7 @@ const Dashboard = () => {
   const tomorrow = new Date();
   tomorrow.setDate(today.getDate() + 1);
   const formattedTomorrow = formatDateWithDay(tomorrow);
-  
+
   const weekDateRange = getWeekDateRange(today);
 
   useEffect(() => {
@@ -371,15 +376,22 @@ const Dashboard = () => {
 
         // [수정 1] 한글과 영어 요일을 모두 매핑하도록 dayMap 확장
         const dayMap: { [key: string]: number } = {
-          일: 0, Sun: 0,
-          월: 1, Mon: 1,
-          화: 2, Tue: 2,
-          수: 3, Wed: 3,
-          목: 4, Thu: 4,
-          금: 5, Fri: 5,
-          토: 6, Sat: 6,
+          일: 0,
+          Sun: 0,
+          월: 1,
+          Mon: 1,
+          화: 2,
+          Tue: 2,
+          수: 3,
+          Wed: 3,
+          목: 4,
+          Thu: 4,
+          금: 5,
+          Fri: 5,
+          토: 6,
+          Sat: 6,
         };
-        
+
         // [수정 2] 문자열 전체에서 한글/영어 요일을 찾는 더 유연한 정규식 사용
         const getDaysFromSchedule = (schedule: string): string[] => {
           // e.g., "월수 10:00", "Mon 09:00", "Tue,Thu 13:00" 등을 모두 처리
@@ -391,14 +403,14 @@ const Dashboard = () => {
         const todayLectures = allLectures.filter((lecture) => {
           const scheduleDays = getDaysFromSchedule(lecture.schedule);
           // 스케줄에 요일 정보가 없는 경우, 매일 있는 수업으로 간주하지 않으므로 필터링
-          if (scheduleDays.length === 0) return false; 
-          
+          if (scheduleDays.length === 0) return false;
+
           return scheduleDays.some((dayStr) => dayMap[dayStr] === todayDay);
         });
 
         const tomorrowLectures = allLectures.filter((lecture) => {
           const scheduleDays = getDaysFromSchedule(lecture.schedule);
-           if (scheduleDays.length === 0) return false;
+          if (scheduleDays.length === 0) return false;
 
           return scheduleDays.some((dayStr) => dayMap[dayStr] === tomorrowDay);
         });
@@ -427,7 +439,9 @@ const Dashboard = () => {
     const fetchIncompleteVideos = async () => {
       setVideosLoading(true);
       try {
-        const response = await apiClient.get<IncompleteVideo[]>("/students/recent-incomplete-videos");
+        const response = await apiClient.get<IncompleteVideo[]>(
+          "/students/recent-incomplete-videos"
+        );
         setIncompleteVideos(response.data);
       } catch (err) {
         console.error("Failed to fetch incomplete videos:", err);
@@ -507,10 +521,14 @@ const Dashboard = () => {
           ) : profile ? (
             <>
               <ProfileImage
-                src={profile.profile_image_url || 'https://via.placeholder.com/80x80.png?text=User'}
+                src={
+                  profile.profile_image_url ||
+                  "https://via.placeholder.com/80x80.png?text=User"
+                }
                 alt="Profile"
+                crossOrigin="anonymous" /* 이 속성을 추가합니다! */
               />
-              <div style={{ textAlign: 'center' }}>
+              <div style={{ textAlign: "center" }}>
                 <ProfileName>{profile.name}</ProfileName>
                 <ProfileEmail>{profile.email}</ProfileEmail>
               </div>
@@ -562,16 +580,25 @@ const Dashboard = () => {
           ) : incompleteVideos.length > 0 ? (
             incompleteVideos.map((video) => (
               <CourseCard key={video.video_id}>
-                <CourseImage src={video.video_image_url || 'https://via.placeholder.com/250x140/ccc/fff?text=Video'} alt={video.video_name} />
+                <CourseImage
+                  src={
+                    video.video_image_url ||
+                    "https://via.placeholder.com/250x140/ccc/fff?text=Video"
+                  }
+                  alt={video.video_name}
+                  crossOrigin="anonymous" /* 이 속성을 추가합니다! */
+                />
                 <CourseInfo>
                   <CourseTitle>{video.lecture_name}</CourseTitle>
                   <CourseDetail>{video.video_name}</CourseDetail>
                   <CourseDetail>{video.instructor_name}</CourseDetail>
                 </CourseInfo>
                 <CourseFooter>
-                  <div style={{flexGrow: 1}} />
+                  <div style={{ flexGrow: 1 }} />
                   <PlayButton title="Continue course">
-                    <span className="material-symbols-outlined">play_arrow</span>
+                    <span className="material-symbols-outlined">
+                      play_arrow
+                    </span>
                   </PlayButton>
                 </CourseFooter>
               </CourseCard>
