@@ -5,6 +5,8 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import apiClient from "../../api/apiClient"; // Axios 클라이언트
 import HlsPlayer from "../../components/video/HlsPlayer";
 import { debounce } from "lodash";
+import MediaPipeFaceMesh from "../../components/mediapipe/MediaPipeFaceMesh";
+
 // --- Styled Components for Detail Page ---
 
 const DetailPageContainer = styled.div`
@@ -151,6 +153,45 @@ const MessageContainer = styled.div`
   color: ${(props) => props.theme.subTextColor};
 `;
 
+const DrowsinessSection = styled.div`
+  margin-top: 2rem;
+  padding: 1.5rem;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+`;
+
+const DrowsinessButton = styled.button`
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-right: 1rem;
+
+  &:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+  }
+`;
+
+const DrowsinessInput = styled.input`
+  padding: 0.5rem;
+  margin-right: 1rem;
+`;
+
+const DrowsinessMessage = styled.p`
+  margin-top: 1rem;
+  color: #333;
+`;
+
+const DrowsinessResult = styled.div`
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+`;
+
 // --- Video 타입 정의 (API 응답 기반) ---
 interface Video {
   id: number;
@@ -158,15 +199,6 @@ interface Video {
   title: string;
   duration: number; // 초 단위 가정
   upload_at: string; // 날짜 형식 확인 필요
-  watched_percent: number;
-}
-
-interface Video {
-  id: number;
-  index: number;
-  title: string;
-  duration: number;
-  upload_at: string;
   watched_percent: number;
 }
 
@@ -191,6 +223,75 @@ const Lectures = () => {
     videoId: null,
     percent: 0,
   });
+
+  // Drowsiness states
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [authCode, setAuthCode] = useState<string | null>(null);
+  const [userInputCode, setUserInputCode] = useState("");
+  const [isVerified, setIsVerified] = useState(false);
+  const [drowsinessData, setDrowsinessData] = useState<any>(null);
+  const [drowsinessMessage, setDrowsinessMessage] = useState<string | null>(
+    "Start the session to begin drowsiness detection."
+  );
+
+  const handleStartSession = async () => {
+    if (!selectedVideo) {
+      setDrowsinessMessage("Please select a video first.");
+      return;
+    }
+    try {
+      const response = await apiClient.post("/students/drowsiness/start", {
+        video_id: selectedVideo.id,
+      });
+      const { session_id, message } = response.data;
+      setSessionId(session_id);
+      const code = message.split(":")[1].trim();
+      setAuthCode(code);
+      setDrowsinessMessage(message);
+    } catch (error) {
+      console.error("Error starting session:", error);
+      setDrowsinessMessage("Failed to start session.");
+    }
+  };
+
+  const handleVerifySession = async () => {
+    if (!sessionId) {
+      setDrowsinessMessage("Session not started.");
+      return;
+    }
+    try {
+      const response = await apiClient.post("/students/drowsiness/verify", {
+        session_id: sessionId,
+        code: userInputCode,
+      });
+      const { verified, message } = response.data;
+      setIsVerified(verified);
+      setDrowsinessMessage(message);
+    } catch (error) {
+      console.error("Error verifying session:", error);
+      setDrowsinessMessage("Failed to verify session.");
+    }
+  };
+
+  const handleFinishSession = async () => {
+    if (!sessionId) {
+      setDrowsinessMessage("Session not started.");
+      return;
+    }
+    try {
+      const response = await apiClient.post("/students/drowsiness/finish", {
+        session_id: sessionId,
+      });
+      setDrowsinessData(response.data);
+      setDrowsinessMessage("Session finished.");
+      setSessionId(null);
+      setIsVerified(false);
+      setAuthCode(null);
+    } catch (error) {
+      console.error("Error finishing session:", error);
+      setDrowsinessMessage("Failed to finish session.");
+    }
+  };
 
   const performSave = useCallback(async () => {
     const { videoId, percent } = progressRef.current;
@@ -429,11 +530,51 @@ const Lectures = () => {
               </PlayerPlaceholder>
             )}
           </Card>
-          <AnalysisPlaceholder>
-            Drowsiness Summary Placeholder
-          </AnalysisPlaceholder>
-          {/* <StopButton>수강중지버튼</StopButton> */}{" "}
-          {/* StopButton 정의가 없으므로 주석 처리 */}
+          <DrowsinessSection>
+            <h2>Drowsiness Detection</h2>
+            <MediaPipeFaceMesh />
+            {!sessionId && (
+              <DrowsinessButton
+                onClick={handleStartSession}
+                disabled={!selectedVideo}
+              >
+                Start Session
+              </DrowsinessButton>
+            )}
+            {sessionId && !isVerified && (
+              <div>
+                <p>{drowsinessMessage}</p>
+                <DrowsinessInput
+                  type="text"
+                  placeholder="Enter verification code"
+                  value={userInputCode}
+                  onChange={(e) => setUserInputCode(e.target.value)}
+                />
+                <DrowsinessButton onClick={handleVerifySession}>
+                  Verify
+                </DrowsinessButton>
+              </div>
+            )}
+            {isVerified && (
+              <div>
+                <p>{drowsinessMessage}</p>
+                <DrowsinessButton onClick={handleFinishSession}>
+                  Finish Session
+                </DrowsinessButton>
+              </div>
+            )}
+            {drowsinessMessage && (
+              <DrowsinessMessage>{drowsinessMessage}</DrowsinessMessage>
+            )}
+            {drowsinessData && (
+              <div>
+                <h3>Drowsiness Detection Result</h3>
+                <DrowsinessResult>
+                  <pre>{JSON.stringify(drowsinessData, null, 2)}</pre>
+                </DrowsinessResult>
+              </div>
+            )}
+          </DrowsinessSection>
         </RightColumn>
       </ContentLayout>
     </DetailPageContainer>
