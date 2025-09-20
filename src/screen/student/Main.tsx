@@ -191,7 +191,7 @@ const Main = () => {
   const navItems = [
     { path: "/student/dashboard", icon: "dashboard", label: "Dashboard" },
     { path: "/student/courses", icon: "menu_book", label: "Courses" },
-    { path: "/student/monitoring", icon: "monitoring", label: "Monitoring" },
+    // { path: "/student/monitoring", icon: "monitoring", label: "Monitoring" },
   ];
 
   // 설정 메뉴 활성 상태 확인
