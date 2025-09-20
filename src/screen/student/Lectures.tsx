@@ -206,6 +206,19 @@ const SectionSubTitle = styled.h3`
   color: ${(props) => props.theme.textColor};
 `;
 
+const GraphPlaceholder = styled.div`
+  background-color: ${(props) => props.theme.backgroundColor};
+  border: 1px dashed ${(props) => props.theme.subTextColor};
+  border-radius: 10px;
+  width: 100%;
+  height: 300px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: ${(props) => props.theme.subTextColor};
+  margin-bottom: 20px;
+`;
+
 // --- Video 타입 정의 (API 응답 기반) ---
 interface Video {
   id: number;
@@ -549,6 +562,12 @@ const Lectures = () => {
                 Select a video from the list
               </PlayerPlaceholder>
             )}
+          </Card>
+          <Card>
+            <SectionTitle>Drowsiness Analysis</SectionTitle>
+            <GraphPlaceholder>
+              Graph will be displayed here.
+            </GraphPlaceholder>
           </Card>
           <Card>
             <SectionTitle>Drowsiness Detection</SectionTitle>
