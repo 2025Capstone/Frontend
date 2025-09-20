@@ -175,15 +175,6 @@ const DrowsinessButton = styled.button`
   }
 `;
 
-const DrowsinessInput = styled.input`
-  padding: 0.5rem;
-  margin-right: 1rem;
-  background-color: ${(props) => props.theme.backgroundColor};
-  border: 1px solid ${(props) => props.theme.subTextColor};
-  color: ${(props) => props.theme.textColor};
-  border-radius: 5px;
-`;
-
 const DrowsinessMessage = styled.p`
   margin-top: 1rem;
   color: ${(props) => props.theme.subTextColor};
@@ -254,9 +245,6 @@ const Lectures = () => {
 
   // Drowsiness states
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [authCode, setAuthCode] = useState<string | null>(null);
-  const [userInputCode, setUserInputCode] = useState("");
-  const [isVerified, setIsVerified] = useState(false);
   const [drowsinessData, setDrowsinessData] = useState<any>(null);
   const [drowsinessMessage, setDrowsinessMessage] = useState<string | null>(
     "Start the session to begin drowsiness detection."
@@ -273,31 +261,10 @@ const Lectures = () => {
       });
       const { session_id, message } = response.data;
       setSessionId(session_id);
-      const code = message.split(":")[1].trim();
-      setAuthCode(code);
       setDrowsinessMessage(message);
     } catch (error) {
       console.error("Error starting session:", error);
       setDrowsinessMessage("Failed to start session.");
-    }
-  };
-
-  const handleVerifySession = async () => {
-    if (!sessionId) {
-      setDrowsinessMessage("Session not started.");
-      return;
-    }
-    try {
-      const response = await apiClient.post("/students/drowsiness/verify", {
-        session_id: sessionId,
-        code: userInputCode,
-      });
-      const { verified, message } = response.data;
-      setIsVerified(verified);
-      setDrowsinessMessage(message);
-    } catch (error) {
-      console.error("Error verifying session:", error);
-      setDrowsinessMessage("Failed to verify session.");
     }
   };
 
@@ -313,8 +280,6 @@ const Lectures = () => {
       setDrowsinessData(response.data);
       setDrowsinessMessage("Session finished.");
       setSessionId(null);
-      setIsVerified(false);
-      setAuthCode(null);
     } catch (error) {
       console.error("Error finishing session:", error);
       setDrowsinessMessage("Failed to finish session.");
@@ -571,7 +536,7 @@ const Lectures = () => {
           </Card>
           <Card>
             <SectionTitle>Drowsiness Detection</SectionTitle>
-            <MediaPipeFaceMesh />
+            <MediaPipeFaceMesh sessionId={sessionId} />
             {!sessionId && (
               <DrowsinessButton
                 onClick={handleStartSession}
@@ -580,23 +545,8 @@ const Lectures = () => {
                 Start Session
               </DrowsinessButton>
             )}
-            {sessionId && !isVerified && (
+            {sessionId && (
               <div>
-                <p>{drowsinessMessage}</p>
-                <DrowsinessInput
-                  type="text"
-                  placeholder="Enter verification code"
-                  value={userInputCode}
-                  onChange={(e) => setUserInputCode(e.target.value)}
-                />
-                <DrowsinessButton onClick={handleVerifySession}>
-                  Verify
-                </DrowsinessButton>
-              </div>
-            )}
-            {isVerified && (
-              <div>
-                <p>{drowsinessMessage}</p>
                 <DrowsinessButton onClick={handleFinishSession}>
                   Finish Session
                 </DrowsinessButton>
