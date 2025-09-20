@@ -31,10 +31,12 @@ const ContentLayout = styled.div`
 const LeftColumn = styled.div`
   flex: 1; /* 비율 조정 가능 */
   min-width: 300px; /* 최소 너비 */
+  transition: all 0.3s ease-in-out;
 `;
 
-const RightColumn = styled.div`
-  flex: 2; /* 비율 조정 가능 */
+const RightColumn = styled.div<{ isListVisible: boolean }>`
+  flex: ${(props) => (props.isListVisible ? 2 : 1)};
+  transition: flex 0.3s ease-in-out;
 `;
 
 const Card = styled.div`
@@ -134,16 +136,17 @@ const PlayerPlaceholder = styled.div`
   margin-bottom: 20px;
 `;
 
-const AnalysisPlaceholder = styled.div`
-  background-color: #eee; // 임시 배경
-  border-radius: 10px;
-  width: 100%;
-  height: 200px; /* 임시 높이 */
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: #888;
-  margin-bottom: 20px;
+const ToggleButton = styled.button`
+  margin-bottom: 1rem;
+  padding: 0.5rem 1rem;
+  background-color: ${(props) => props.theme.btnColor};
+  border: 1px solid ${(props) => props.theme.btnColor};
+  color: ${(props) => props.theme.textColor};
+  border-radius: 5px;
+  cursor: pointer;
+  &:hover {
+    background-color: ${(props) => props.theme.hoverBtnColor};
+  }
 `;
 
 // 로딩/에러 메시지
@@ -153,21 +156,18 @@ const MessageContainer = styled.div`
   color: ${(props) => props.theme.subTextColor};
 `;
 
-const DrowsinessSection = styled.div`
-  margin-top: 2rem;
-  padding: 1.5rem;
-  border: 1px solid #ddd;
-  border-radius: 10px;
-`;
-
 const DrowsinessButton = styled.button`
-  background-color: #007bff;
-  color: white;
+  background-color: ${(props) => props.theme.btnColor};
+  color: ${(props) => props.theme.textColor};
   border: none;
   padding: 0.5rem 1rem;
   border-radius: 5px;
   cursor: pointer;
   margin-right: 1rem;
+
+  &:hover {
+    background-color: ${(props) => props.theme.hoverBtnColor};
+  }
 
   &:disabled {
     background-color: #cccccc;
@@ -178,18 +178,32 @@ const DrowsinessButton = styled.button`
 const DrowsinessInput = styled.input`
   padding: 0.5rem;
   margin-right: 1rem;
+  background-color: ${(props) => props.theme.backgroundColor};
+  border: 1px solid ${(props) => props.theme.subTextColor};
+  color: ${(props) => props.theme.textColor};
+  border-radius: 5px;
 `;
 
 const DrowsinessMessage = styled.p`
   margin-top: 1rem;
-  color: #333;
+  color: ${(props) => props.theme.subTextColor};
 `;
 
 const DrowsinessResult = styled.div`
   margin-top: 1rem;
   padding: 1rem;
-  border: 1px solid #ccc;
+  border: 1px solid ${(props) => props.theme.subTextColor};
+  background-color: ${(props) => props.theme.backgroundColor};
+  color: ${(props) => props.theme.textColor};
   border-radius: 5px;
+`;
+
+const SectionTitle = styled.h2`
+  color: ${(props) => props.theme.textColor};
+`;
+
+const SectionSubTitle = styled.h3`
+  color: ${(props) => props.theme.textColor};
 `;
 
 // --- Video 타입 정의 (API 응답 기반) ---
@@ -219,6 +233,7 @@ const Lectures = () => {
   const [currentPlayTime, setCurrentPlayTime] = useState<number>(0);
   const [currentDuration, setCurrentDuration] = useState<number>(0);
   const [initialWatchedPercent, setInitialWatchedPercent] = useState<number>(0);
+  const [isListVisible, setIsListVisible] = useState(true);
   const progressRef = useRef<{ videoId: number | null; percent: number }>({
     videoId: null,
     percent: 0,
@@ -459,53 +474,58 @@ const Lectures = () => {
   return (
     <DetailPageContainer>
       <Breadcrumb>&gt; Courses / {lectureName}</Breadcrumb>
+      <ToggleButton onClick={() => setIsListVisible(!isListVisible)}>
+        {isListVisible ? "Hide List" : "Show List"}
+      </ToggleButton>
       <ContentLayout>
-        <LeftColumn>
-          <Card>
-            <CardTitle>Course Schedule</CardTitle>
-            <VideoList>
-              {videos.length > 0 ? (
-                videos.map((video) => (
-                  <VideoListItem
-                    key={video.id}
-                    isActive={selectedVideo?.id === video.id}
-                    onClick={() => handleVideoSelect(video)}
-                  >
-                    <VideoInfo>
-                      <VideoMeta>Week {video.index + 1}</VideoMeta>
-                      <VideoTitle>
-                        Chapter {video.index + 1}. {video.title}
-                      </VideoTitle>
-                      <VideoMeta>
-                        {new Date(video.upload_at).toLocaleDateString()}
-                      </VideoMeta>
-                    </VideoInfo>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "10px",
-                      }}
+        {isListVisible && (
+          <LeftColumn>
+            <Card>
+              <CardTitle>Course Schedule</CardTitle>
+              <VideoList>
+                {videos.length > 0 ? (
+                  videos.map((video) => (
+                    <VideoListItem
+                      key={video.id}
+                      isActive={selectedVideo?.id === video.id}
+                      onClick={() => handleVideoSelect(video)}
                     >
-                      <VideoDuration>
-                        {formatDuration(video.duration)}
-                      </VideoDuration>
-                      <VideoPlayButton title={`Play ${video.title}`}>
-                        <span className="material-symbols-outlined">
-                          play_circle
-                        </span>
-                      </VideoPlayButton>
-                    </div>
-                  </VideoListItem>
-                ))
-              ) : (
-                <p>No videos available for this lecture.</p>
-              )}
-            </VideoList>
-          </Card>
-        </LeftColumn>
+                      <VideoInfo>
+                        <VideoMeta>Week {video.index + 1}</VideoMeta>
+                        <VideoTitle>
+                          Chapter {video.index + 1}. {video.title}
+                        </VideoTitle>
+                        <VideoMeta>
+                          {new Date(video.upload_at).toLocaleDateString()}
+                        </VideoMeta>
+                      </VideoInfo>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "10px",
+                        }}
+                      >
+                        <VideoDuration>
+                          {formatDuration(video.duration)}
+                        </VideoDuration>
+                        <VideoPlayButton title={`Play ${video.title}`}>
+                          <span className="material-symbols-outlined">
+                            play_circle
+                          </span>
+                        </VideoPlayButton>
+                      </div>
+                    </VideoListItem>
+                  ))
+                ) : (
+                  <p>No videos available for this lecture.</p>
+                )}
+              </VideoList>
+            </Card>
+          </LeftColumn>
+        )}
 
-        <RightColumn>
+        <RightColumn isListVisible={isListVisible}>
           <Card>
             {playerLoading && (
               <MessageContainer>Loading video...</MessageContainer>
@@ -530,8 +550,8 @@ const Lectures = () => {
               </PlayerPlaceholder>
             )}
           </Card>
-          <DrowsinessSection>
-            <h2>Drowsiness Detection</h2>
+          <Card>
+            <SectionTitle>Drowsiness Detection</SectionTitle>
             <MediaPipeFaceMesh />
             {!sessionId && (
               <DrowsinessButton
@@ -568,13 +588,13 @@ const Lectures = () => {
             )}
             {drowsinessData && (
               <div>
-                <h3>Drowsiness Detection Result</h3>
+                <SectionSubTitle>Drowsiness Detection Result</SectionSubTitle>
                 <DrowsinessResult>
                   <pre>{JSON.stringify(drowsinessData, null, 2)}</pre>
                 </DrowsinessResult>
               </div>
             )}
-          </DrowsinessSection>
+          </Card>
         </RightColumn>
       </ContentLayout>
     </DetailPageContainer>
