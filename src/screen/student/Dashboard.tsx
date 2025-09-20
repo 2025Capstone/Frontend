@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import apiClient from "../../api/apiClient";
+import { useNavigate } from "react-router-dom";
 
 // --- Styled Components for Dashboard ---
 const MainTitle = styled.h2`
@@ -173,6 +174,7 @@ const CourseCard = styled.div`
   display: flex;
   flex-direction: column;
   transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  cursor: pointer;
 
   &:hover {
     transform: translateY(-5px);
@@ -339,14 +341,13 @@ interface IncompleteVideo {
 // --- Dashboard Component ---
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [todayClasses, setTodayClasses] = useState<Lecture[]>([]);
   const [tomorrowClasses, setTomorrowClasses] = useState<Lecture[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState<boolean>(true);
-  const [incompleteVideos, setIncompleteVideos] = useState<IncompleteVideo[]>(
-    []
-  );
+  const [incompleteVideos, setIncompleteVideos] = useState<IncompleteVideo[]>([]);
   const [videosLoading, setVideosLoading] = useState<boolean>(true);
 
   const today = new Date();
@@ -579,7 +580,10 @@ const Dashboard = () => {
             <p>Loading courses...</p>
           ) : incompleteVideos.length > 0 ? (
             incompleteVideos.map((video) => (
-              <CourseCard key={video.video_id}>
+              <CourseCard
+                key={video.video_id}
+                onClick={() => navigate(`/student/courses/${video.lecture_id}`)}
+              >
                 <CourseImage
                   src={
                     video.video_image_url ||
