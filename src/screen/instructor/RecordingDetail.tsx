@@ -1,205 +1,233 @@
-import React, { useState, useRef, useEffect } from "react";
-import { useParams } from "react-router-dom";
-import styled from "styled-components";
-import { createFFmpeg, fetchFile } from "@ffmpeg/ffmpeg";
-import axios from "axios";
+import React, { useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import styled, { keyframes } from "styled-components";
+import apiClient from "../../api/apiClient";
 
-// 스타일드 컴포넌트
+// --- Styled Components ---
+
 const Container = styled.div`
-  padding: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+  background-color: ${(props) => props.theme.backgroundColor};
+  color: ${(props) => props.theme.textColor};
+  min-height: 100vh;
+`;
+
+const UploadBox = styled.div`
+  background-color: ${(props) => props.theme.formContainerColor};
+  padding: 40px;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 600px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
 `;
 
 const Title = styled.h1`
-  font-size: 40px;
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 30px;
+`;
+
+const InputGroup = styled.div`
+  display: flex;
+  align-items: center;
+  width: 100%;
   margin-bottom: 20px;
 `;
 
-const VideoElement = styled.video`
-  width: 600px;
-  margin-bottom: 20px;
+const Input = styled.input`
+  padding: 15px 10px;
+  font-size: 1rem;
+  font-weight: bold;
+  border-radius: 8px;
+  border: none;
+  background-color: ${(props) => props.theme.backgroundColor};
+  color: ${(props) => props.theme.subTextColor};
+  flex: 1;
+`;
+
+const FileIconButton = styled.label`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 15px;
+  cursor: pointer;
+  background-color: ${(props) => props.theme.subTextColor};
+  color: ${(props) => props.theme.backgroundColor};
+  border-radius: 8px;
+  transition: background-color 0.3s;
+  margin-left: 10px;
+
+  &:hover {
+    background-color: ${(props) => props.theme.textColor};
+  }
+`;
+
+const HiddenFileInput = styled.input`
+  display: none;
+`;
+
+const FileName = styled.p`
+  font-size: 1rem;
+  font-weight: bold;
+  color: ${(props) => props.theme.subTextColor};
+  margin-bottom: 30px;
 `;
 
 const Button = styled.button`
-  padding: 10px 20px;
-  font-size: 16px;
+  padding: 15px 30px;
+  font-size: 1.2rem;
+  font-weight: 600;
   cursor: pointer;
-  background-color: #1f6feb;
-  color: white;
+  background-color: ${(props) => props.theme.btnColor};
+  color: ${(props) => props.theme.textColor};
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   transition: background-color 0.3s;
+  width: 100%;
 
   &:hover {
-    background-color: #0d4db8;
+    background-color: ${(props) => props.theme.hoverBtnColor};
+  }
+
+  &:disabled {
+    background-color: #ccc;
+    color: #666;
+    cursor: not-allowed;
   }
 `;
 
-const DownloadLink = styled.a`
-  display: inline-block;
-  margin-top: 20px;
-  font-size: 16px;
-  color: #1f6feb;
-  text-decoration: none;
+// --- Loader Components ---
 
-  &:hover {
-    text-decoration: underline;
-  }
+const spin = keyframes`
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 `;
 
-const Message = styled.p`
-  font-size: 16px;
-  margin-top: 20px;
-  color: #555;
+const LoaderOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  flex-direction: column;
 `;
+
+const Spinner = styled.div`
+  border: 8px solid ${(props) => props.theme.formContainerColor};
+  border-top: 8px solid ${(props) => props.theme.highlightColor};
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  animation: ${spin} 1.5s linear infinite;
+`;
+
+const LoaderText = styled.p`
+  color: white;
+  font-size: 1.2rem;
+  margin-top: 20px;
+`;
+
+// --- Component ---
 
 const RecordingDetail: React.FC = () => {
-  // URL 파라미터에서 강의 id를 추출 (타입은 string 또는 undefined)
-  const { id } = useParams<{ id: string }>();
-  const [isRecording, setIsRecording] = useState<boolean>(false);
-  const [isEncoding, setIsEncoding] = useState<boolean>(false);
-  const [stream, setStream] = useState<MediaStream | null>(null);
-  const [downloadUrl, setDownloadUrl] = useState<string | null>("");
-  const [mp4Blob, setMp4Blob] = useState<Blob | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordedChunksRef = useRef<Blob[]>([]);
+  const { id: lectureId } = useParams<{ id: string }>();
+  const navigate = useNavigate();
 
-  // ffmpeg 인스턴스 생성
-  const ffmpeg = createFFmpeg({ log: true });
+  const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [videoTitle, setVideoTitle] = useState<string>("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  const loadFFmpeg = async () => {
-    if (!ffmpeg.isLoaded()) {
-      await ffmpeg.load();
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
     }
   };
 
-  // stream 상태 변경 시 video element에 연결
-  useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream;
+  const handleUpload = async () => {
+    if (!selectedFile || !videoTitle.trim() || !lectureId) {
+      alert("Please provide a title and select a video file.");
+      return;
     }
-  }, [stream]);
 
-  // 웹캠 활성화 및 녹화 시작
-  const startRecording = async () => {
-    setDownloadUrl(null);
-    setMp4Blob(null);
-    try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
-      });
-      setStream(mediaStream);
-      setIsRecording(true);
-      recordedChunksRef.current = [];
-
-      const options = { mimeType: "video/webm" };
-      const mediaRecorder = new MediaRecorder(mediaStream, options);
-      mediaRecorderRef.current = mediaRecorder;
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          recordedChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        const webmBlob = new Blob(recordedChunksRef.current, {
-          type: "video/webm",
-        });
-
-        try {
-          // ffmpeg 로드 및 인코딩 시작
-          setIsEncoding(true);
-          await loadFFmpeg();
-
-          ffmpeg.FS("writeFile", "input.webm", await fetchFile(webmBlob));
-          await ffmpeg.run("-i", "input.webm", "-c:v", "libx264", "-c:a", "aac", "output.mp4");
-
-          const data = ffmpeg.FS("readFile", "output.mp4");
-
-          const convertedBlob = new Blob([data.buffer as ArrayBuffer], { type: "video/mp4" });
-          const url = URL.createObjectURL(convertedBlob);
-          setDownloadUrl(url);
-          setMp4Blob(convertedBlob);
-          console.log("변환된 파일 URL:", url);
-
-          // 변환 완료 후 강의 id가 유효하면 업로드 함수 호출
-          if (id) {
-            alert("업로드 시작!");
-            // 비동기에 따른 딜레이 처리 필요해보임!
-            await handleUpload(convertedBlob, id);
-          } else {
-            console.error("유효하지 않은 강의 ID입니다.");
-          }
-        } catch (error) {
-          console.error("mp4 변환 오류", error);
-        } finally {
-          setIsEncoding(false);
-        }
-      };
-
-      mediaRecorder.start();
-    } catch (error) {
-      console.error("웹캠 접근 오류:", error);
-    }
-  };
-
-  // 업로드 함수: 변환된 mp4 Blob과 강의 id를 받아 업로드 진행
-  const handleUpload = async (blob: Blob, lectureId: string) => {
     const formData = new FormData();
-    formData.append("file", blob, `lecture-${lectureId}.mp4`);
+    formData.append("file", selectedFile, selectedFile.name);
     formData.append("lecture_id", lectureId);
-    formData.append("title", `Lecture ${lectureId}`);
+    formData.append("title", videoTitle);
 
+    setIsUploading(true);
     try {
-      const response = await axios.post("http://127.0.0.1:8000/videos/upload", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
-      console.log("업로드 성공!", response.data);
-      alert("업로드 성공");
+      const response = await apiClient.post(
+        "/instructors/upload-video",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+      console.log("Upload successful!", response.data);
+      alert("Upload successful!");
+      navigate("/instructor/courses"); // Redirect after success
     } catch (error) {
-      console.error("업로드 실패!", error);
-      alert("업로드 실패");
+      console.error("Upload failed!", error);
+      alert("Upload failed.");
+    } finally {
+      setIsUploading(false);
     }
   };
 
-  // 녹화 종료: 스트림 정지; 업로드는 onstop에서 처리하므로 handleUpload 호출은 제거함
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-    }
-
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
-      setStream(null);
-    }
-    setIsRecording(false);
-    console.log("녹화 종료; 변환 및 업로드 진행 중...");
-  };
+  const isButtonDisabled = !selectedFile || !videoTitle.trim() || isUploading;
 
   return (
-    <Container>
-      <Title>강의 {id} 녹화 페이지</Title>
-      {isRecording ? (
-        <>
-          <VideoElement ref={videoRef} autoPlay playsInline />
-          <Button onClick={stopRecording}>녹화 종료</Button>
-        </>
-      ) : (
-        <>
-          <Button onClick={startRecording}>강의 녹화 시작</Button>
-          {isEncoding && <Message>영상 인코딩 중...</Message>}
-          {downloadUrl && (
-            <DownloadLink href={downloadUrl} download={`lecture-${id}.mp4`}>
-              녹화 영상 다운로드
-            </DownloadLink>
-          )}
-        </>
+    <>
+      {isUploading && (
+        <LoaderOverlay>
+          <Spinner />
+          <LoaderText>Uploading video...</LoaderText>
+        </LoaderOverlay>
       )}
-    </Container>
+      <Container>
+        <UploadBox>
+          <Title>Upload Video</Title>
+          <InputGroup>
+            <Input
+              type="text"
+              placeholder="Enter video title"
+              value={videoTitle}
+              onChange={(e) => setVideoTitle(e.target.value)}
+            />
+            <FileIconButton
+              htmlFor="file-upload"
+              className="material-symbols-outlined"
+            >
+              videocam
+            </FileIconButton>
+          </InputGroup>
+          <HiddenFileInput
+            id="file-upload"
+            type="file"
+            accept="video/mp4"
+            onChange={handleFileChange}
+          />
+          {selectedFile && <FileName>Selected: {selectedFile.name}</FileName>}
+          <Button onClick={handleUpload} disabled={isButtonDisabled}>
+            Upload Video
+          </Button>
+        </UploadBox>
+      </Container>
+    </>
   );
 };
 
