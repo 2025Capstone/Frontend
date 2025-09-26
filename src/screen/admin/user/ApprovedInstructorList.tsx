@@ -304,7 +304,7 @@ const AdminInstructorUserList = () => {
                   <Th>Instructor ID *</Th>
                   <Th>Name *</Th>
                   <Th>Email *</Th>
-                  <Th>Courses</Th>
+                  {/* <Th>Courses</Th> */}
                   <Th>Block</Th> {/* Block 컬럼 추가 */}
                 </Tr>
               </Thead>
@@ -315,13 +315,13 @@ const AdminInstructorUserList = () => {
                       <Td>{instructor.id}</Td>
                       <Td>{instructor.name || "-"}</Td>
                       <Td>{instructor.email}</Td>
-                      <Td>
+                      {/* <Td>
                         <ActionButton
                           onClick={() => handleManageCourses(instructor.id)}
                         >
                           Manage Courses
                         </ActionButton>
-                      </Td>
+                      </Td> */}
                       <Td>
                         <BlockButton
                           onClick={() => handleBlockInstructor(instructor.id)}
