@@ -6,6 +6,7 @@ import apiClient from "../../api/apiClient"; // Axios 클라이언트
 import HlsPlayer from "../../components/video/HlsPlayer";
 import { debounce } from "lodash";
 import MediaPipeFaceMesh from "../../components/mediapipe/MediaPipeFaceMesh";
+import VideoJSPlayer from "../../components/video/VideoJSPlayer"; // 새로 만든 VideoJSPlayer를 import
 
 // --- Styled Components for Detail Page ---
 
@@ -220,6 +221,17 @@ interface Video {
   watched_percent: number;
 }
 
+const dummyDrowsinessData = [
+  { t: 0, value: 0.15 },
+  { t: 2, value: 0.20 },
+  { t: 4, value: 0.45 }, // 졸음 수치 약간 상승
+  { t: 6, value: 0.80 }, // 졸음 수치 최고점
+  { t: 8, value: 0.65 },
+  { t: 10, value: 0.40 },
+  { t: 12, value: 0.35 },
+  { t: 13, value: 0.30 }  // 영상 끝
+];
+
 // --- LectureDetail Component ---
 const Lectures = () => {
   const { lectureId } = useParams<{ lectureId: string }>();
@@ -245,7 +257,7 @@ const Lectures = () => {
 
   // Drowsiness states
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [drowsinessData, setDrowsinessData] = useState<any>(null);
+  const [drowsinessData, setDrowsinessData] = useState<any[] | null>(dummyDrowsinessData);
   const [drowsinessMessage, setDrowsinessMessage] = useState<string | null>(
     "Start the session to begin drowsiness detection."
   );
@@ -449,6 +461,13 @@ const Lectures = () => {
 
   // --- JSX Structure using Assumed Styled Components ---
   // Make sure to import the actual styled components where needed
+
+  console.log({
+    playerLoading,
+    playerError,
+    hlsSrc,
+    selectedVideo,
+  });
   return (
     <DetailPageContainer>
       <Breadcrumb>&gt; Courses / {lectureName}</Breadcrumb>
@@ -511,14 +530,34 @@ const Lectures = () => {
             {playerError && (
               <MessageContainer>Error: {playerError}</MessageContainer>
             )}
-            {!playerLoading && !playerError && hlsSrc && selectedVideo && (
+            {/* {!playerLoading && !playerError && hlsSrc && selectedVideo && (
               <HlsPlayer
                 key={hlsSrc}
                 src={hlsSrc}
                 onTimeUpdate={handleTimeUpdate}
                 initialSeekPercent={initialWatchedPercent}
               />
-            )}
+            )} */}
+            {/* {!playerLoading && !playerError && hlsSrc && selectedVideo && (
+              <HlsPlayer
+                key={hlsSrc}
+                src={hlsSrc}
+                onTimeUpdate={handleTimeUpdate}
+                initialSeekPercent={initialWatchedPercent}
+                graphData={drowsinessData || []} // drowsinessData를 prop으로 전달
+              />
+            )} */}
+
+            
+            {!playerLoading && !playerError && hlsSrc && selectedVideo && (
+            <VideoJSPlayer
+              key={hlsSrc} // Using key forces a remount when the video changes, which is a simple and effective way to handle state reset.
+              src={hlsSrc}
+              onTimeUpdate={handleTimeUpdate}
+              initialSeekPercent={initialWatchedPercent}
+              graphData={drowsinessData || []} // Pass the drowsiness data to the player
+            />
+          )}
             {!playerLoading && !playerError && !hlsSrc && selectedVideo && (
               <MessageContainer>Could not load video source.</MessageContainer>
             )}
@@ -528,13 +567,13 @@ const Lectures = () => {
               </PlayerPlaceholder>
             )}
           </Card>
-          <Card>
+          {/* <Card>
             <SectionTitle>Drowsiness Analysis</SectionTitle>
             <GraphPlaceholder>
               Graph will be displayed here.
             </GraphPlaceholder>
-          </Card>
-          <Card>
+          </Card> */}
+          {/* <Card>
             <SectionTitle>Drowsiness Detection</SectionTitle>
             <MediaPipeFaceMesh sessionId={sessionId} />
             {!sessionId && (
@@ -563,7 +602,7 @@ const Lectures = () => {
                 </DrowsinessResult>
               </div>
             )}
-          </Card>
+          </Card> */}
         </RightColumn>
       </ContentLayout>
     </DetailPageContainer>
