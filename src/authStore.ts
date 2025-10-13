@@ -9,10 +9,11 @@ interface AuthState {
   userRole: UserRole;
   accessToken: string | null; // 백엔드 JWT Access Token
   refreshToken: string | null; // 백엔드 JWT Refresh Token
+  uid: string | null;
   // 토큰만 업데이트하는 액션 (토큰 갱신 시 사용)
   setTokens: (tokens: { accessToken: string | null; refreshToken: string | null }) => void;
   // 전체 인증 정보 설정 액션 (로그인 시 사용)
-  setAuthInfo: (data: { isAuthenticated: boolean; userRole: UserRole; accessToken: string | null; refreshToken: string | null }) => void;
+  setAuthInfo: (data: { isAuthenticated: boolean; userRole: UserRole; accessToken: string | null; refreshToken: string | null; uid: string | null; }) => void;
   logout: () => void;
 }
 
@@ -23,6 +24,7 @@ export const useAuthStore = create<AuthState>()(
       userRole: null,
       accessToken: null,
       refreshToken: null,
+      uid: null,
       setTokens: (tokens) => set({
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
@@ -32,10 +34,11 @@ export const useAuthStore = create<AuthState>()(
         userRole: data.userRole,
         accessToken: data.accessToken,
         refreshToken: data.refreshToken,
+        uid: data.uid,
       }),
       logout: () => {
         // TODO: 필요시 Firebase 로그아웃
-        set({ isAuthenticated: false, userRole: null, accessToken: null, refreshToken: null });
+        set({ isAuthenticated: false, userRole: null, accessToken: null, refreshToken: null, uid: null });
       },
     }),
     {

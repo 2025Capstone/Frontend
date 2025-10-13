@@ -7,6 +7,9 @@ import HlsPlayer from "../../components/video/HlsPlayer";
 import { debounce } from "lodash";
 import MediaPipeFaceMesh from "../../components/mediapipe/MediaPipeFaceMesh";
 import VideoJSPlayer from "../../components/video/VideoJSPlayer"; // 새로 만든 VideoJSPlayer를 import
+import { db } from "../../firebase";
+import { ref, onValue, off } from "firebase/database";
+import { useAuthStore } from "../../authStore";
 
 // --- Styled Components for Detail Page ---
 
@@ -234,6 +237,7 @@ const dummyDrowsinessData = [
 
 // --- LectureDetail Component ---
 const Lectures = () => {
+  const uid = useAuthStore((state) => state.uid);
   const { lectureId } = useParams<{ lectureId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -257,6 +261,9 @@ const Lectures = () => {
 
   // Drowsiness states
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [authCode, setAuthCode] = useState<string | null>(null);
+  const [isPaired, setIsPaired] = useState<boolean>(false);
+  const [isDetecting, setIsDetecting] = useState<boolean>(false);
   const [drowsinessData, setDrowsinessData] = useState<any[] | null>(dummyDrowsinessData);
   const [drowsinessMessage, setDrowsinessMessage] = useState<string | null>(
     "Start the session to begin drowsiness detection."
@@ -271,9 +278,13 @@ const Lectures = () => {
       const response = await apiClient.post("/students/drowsiness/start", {
         video_id: selectedVideo.id,
       });
-      const { session_id, message } = response.data;
+      const { session_id, auth_code } = response.data;
       setSessionId(session_id);
-      setDrowsinessMessage(message);
+      setAuthCode(auth_code);
+      setIsDetecting(true);
+      setDrowsinessMessage(
+        `Wearable device authentication code: ${auth_code}. Please enter this code on your device.`
+      );
     } catch (error) {
       console.error("Error starting session:", error);
       setDrowsinessMessage("Failed to start session.");
@@ -288,15 +299,44 @@ const Lectures = () => {
     try {
       const response = await apiClient.post("/students/drowsiness/finish", {
         session_id: sessionId,
+        student_uid: uid,
       });
       setDrowsinessData(response.data);
-      setDrowsinessMessage("Session finished.");
-      setSessionId(null);
+      setDrowsinessMessage(
+        "Session finished. Click 'Start Session' to begin a new one."
+      );
     } catch (error) {
       console.error("Error finishing session:", error);
       setDrowsinessMessage("Failed to finish session.");
+    } finally {
+      // Cleanup
+      setSessionId(null);
+      setAuthCode(null);
+      setIsPaired(false);
+      setIsDetecting(false);
     }
   };
+
+  useEffect(() => {
+    if (!sessionId) return;
+
+    // Reset paired status for new session
+    setIsPaired(false);
+
+    const dbRef = ref(db, `${sessionId}/pairing/paired`);
+
+    const listener = onValue(dbRef, (snapshot) => {
+      if (snapshot.val() === true) {
+        setIsPaired(true);
+        setDrowsinessMessage("Device connected. Starting data collection.");
+      }
+    });
+
+    // Cleanup function to remove the listener
+    return () => {
+      off(dbRef, "value", listener);
+    };
+  }, [sessionId]);
 
   const performSave = useCallback(async () => {
     const { videoId, percent } = progressRef.current;
@@ -573,28 +613,27 @@ const Lectures = () => {
               Graph will be displayed here.
             </GraphPlaceholder>
           </Card> */}
-          {/* <Card>
+          <Card>
             <SectionTitle>Drowsiness Detection</SectionTitle>
-            <MediaPipeFaceMesh sessionId={sessionId} />
-            {!sessionId && (
+            <MediaPipeFaceMesh sessionId={sessionId} isPaired={isPaired} />
+            {!isDetecting ? (
               <DrowsinessButton
                 onClick={handleStartSession}
                 disabled={!selectedVideo}
               >
                 Start Session
               </DrowsinessButton>
+            ) : (
+              <DrowsinessButton onClick={handleFinishSession}>
+                Finish Session
+              </DrowsinessButton>
             )}
-            {sessionId && (
-              <div>
-                <DrowsinessButton onClick={handleFinishSession}>
-                  Finish Session
-                </DrowsinessButton>
-              </div>
-            )}
+
             {drowsinessMessage && (
               <DrowsinessMessage>{drowsinessMessage}</DrowsinessMessage>
             )}
-            {drowsinessData && (
+
+            {drowsinessData && !isDetecting && (
               <div>
                 <SectionSubTitle>Drowsiness Detection Result</SectionSubTitle>
                 <DrowsinessResult>
@@ -602,7 +641,7 @@ const Lectures = () => {
                 </DrowsinessResult>
               </div>
             )}
-          </Card> */}
+          </Card>
         </RightColumn>
       </ContentLayout>
     </DetailPageContainer>

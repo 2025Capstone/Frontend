@@ -13,12 +13,26 @@ declare global {
 
 interface MediaPipeFaceMeshProps {
   sessionId?: string | null;
+  isPaired: boolean;
 }
 
-const MediaPipeFaceMesh: React.FC<MediaPipeFaceMeshProps> = ({ sessionId }) => {
+const MediaPipeFaceMesh: React.FC<MediaPipeFaceMeshProps> = ({
+  sessionId,
+  isPaired,
+}) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  
+  // --- 👇 [로그 확인용] 프레임 카운터를 위한 useRef 추가 ---
+  const frameCounter = useRef(0);
+
+  // isPaired prop의 최신 값을 추적하기 위한 ref
+  const isPairedRef = useRef(isPaired);
+  useEffect(() => {
+    isPairedRef.current = isPaired;
+    console.log(`[MediaPipeFaceMesh] isPaired prop updated: ${isPaired}`);
+  }, [isPaired]);
 
   const openWebSocket = (id: string) => {
     wsRef.current = new WebSocket(
@@ -27,6 +41,8 @@ const MediaPipeFaceMesh: React.FC<MediaPipeFaceMeshProps> = ({ sessionId }) => {
 
     wsRef.current.onopen = () => {
       console.log("WebSocket connected");
+      // 웹소켓이 새로 연결될 때마다 카운터 초기화
+      frameCounter.current = 0;
     };
 
     wsRef.current.onclose = () => {
@@ -114,11 +130,19 @@ const MediaPipeFaceMesh: React.FC<MediaPipeFaceMeshProps> = ({ sessionId }) => {
               lineWidth: 1,
             });
 
-            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            if (
+              wsRef.current &&
+              wsRef.current.readyState === WebSocket.OPEN &&
+              isPairedRef.current
+            ) {
               const formattedLandmarks = landmarks.map(
                 (lm: { x: number; y: number; z: number }) => [lm.x, lm.y, lm.z]
               );
               wsRef.current.send(JSON.stringify({ frame: formattedLandmarks }));
+              
+              // --- 👇 [로그 확인] 데이터를 보낼 때마다 카운터를 1씩 증가시키고 콘솔에 출력 ---
+              frameCounter.current += 1;
+              console.log(`[WebSocket] Landmark frame sent: #${frameCounter.current}`);
             }
           });
         }
