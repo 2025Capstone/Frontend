@@ -225,14 +225,17 @@ interface Video {
 }
 
 const dummyDrowsinessData = [
-  { t: 0, value: 0.15 },
-  { t: 2, value: 0.20 },
-  { t: 4, value: 0.45 }, // 졸음 수치 약간 상승
-  { t: 6, value: 0.80 }, // 졸음 수치 최고점
-  { t: 8, value: 0.65 },
-  { t: 10, value: 0.40 },
-  { t: 12, value: 0.35 },
-  { t: 13, value: 0.30 }  // 영상 끝
+  { t: 0, value: 0.10 },   // 영상 시작
+  { t: 5, value: 0.12 },
+  { t: 10, value: 0.18 },
+  { t: 15, value: 0.25 },  // 졸음 수치 서서히 상승 시작
+  { t: 22, value: 0.45 },
+  { t: 30, value: 0.60 },
+  { t: 38, value: 0.85 },  // 졸음 수치 최고점 근접
+  { t: 45, value: 0.92 },  // 졸음 수치 최고점
+  { t: 50, value: 0.70 },  // 약간의 정신을 차리며 수치 하락
+  { t: 55, value: 0.55 },
+  { t: 61, value: 0.48 }   // 영상 끝
 ];
 
 // --- LectureDetail Component ---
@@ -570,23 +573,6 @@ const Lectures = () => {
             {playerError && (
               <MessageContainer>Error: {playerError}</MessageContainer>
             )}
-            {/* {!playerLoading && !playerError && hlsSrc && selectedVideo && (
-              <HlsPlayer
-                key={hlsSrc}
-                src={hlsSrc}
-                onTimeUpdate={handleTimeUpdate}
-                initialSeekPercent={initialWatchedPercent}
-              />
-            )} */}
-            {/* {!playerLoading && !playerError && hlsSrc && selectedVideo && (
-              <HlsPlayer
-                key={hlsSrc}
-                src={hlsSrc}
-                onTimeUpdate={handleTimeUpdate}
-                initialSeekPercent={initialWatchedPercent}
-                graphData={drowsinessData || []} // drowsinessData를 prop으로 전달
-              />
-            )} */}
 
             
             {!playerLoading && !playerError && hlsSrc && selectedVideo && (
@@ -607,12 +593,6 @@ const Lectures = () => {
               </PlayerPlaceholder>
             )}
           </Card>
-          {/* <Card>
-            <SectionTitle>Drowsiness Analysis</SectionTitle>
-            <GraphPlaceholder>
-              Graph will be displayed here.
-            </GraphPlaceholder>
-          </Card> */}
           <Card>
             <SectionTitle>Drowsiness Detection</SectionTitle>
             <MediaPipeFaceMesh sessionId={sessionId} isPaired={isPaired} />
@@ -633,14 +613,6 @@ const Lectures = () => {
               <DrowsinessMessage>{drowsinessMessage}</DrowsinessMessage>
             )}
 
-            {drowsinessData && !isDetecting && (
-              <div>
-                <SectionSubTitle>Drowsiness Detection Result</SectionSubTitle>
-                <DrowsinessResult>
-                  <pre>{JSON.stringify(drowsinessData, null, 2)}</pre>
-                </DrowsinessResult>
-              </div>
-            )}
           </Card>
         </RightColumn>
       </ContentLayout>
