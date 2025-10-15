@@ -2,37 +2,45 @@ import React, { useRef, useEffect, useCallback } from "react";
 import styled from "styled-components";
 import videojs from "video.js";
 import "video.js/dist/video-js.css";
-import "@videojs/http-streaming"; // HLS 재생을 위한 import
+import "@videojs/http-streaming";
 import { Chart, registerables } from "chart.js";
 import type { Chart as ChartType } from "chart.js";
 import type Player from "video.js/dist/types/player";
 
-// Chart.js 필수 요소 등록
 Chart.register(...registerables);
 
-// --- Styled Components ---
+// --- Styled Components (기존과 동일) ---
 const PlayerWrapper = styled.div`
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 9;
-  background-color: #000; /* 비디오 로딩 중 배경색 */
+  height: clamp(320px, 56vw, 540px);
+  background-color: #000;
 
   .video-js {
+    position: absolute;
+    inset: 0;
     border-radius: 10px;
     overflow: hidden;
     width: 100%;
     height: 100%;
   }
 
+  .vjs-tech {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+  }
+
   .video-js .vjs-time-control { display: block; }
   .video-js .vjs-remaining-time { display: none; }
   .video-js .vjs-progress-control:hover .vjs-time-tooltip { display: none !important; }
 
-  /* --- Graph Overlay Styles --- */
   .graph-overlay {
     position: absolute;
     left: 0;
-    right: 0;
+    /* 🎯 [수정 1] 너비를 100%로 설정하여 항상 부모 요소를 꽉 채우도록 합니다. */
+    width: 100%;
     bottom: 100%;
     height: 60px;
     pointer-events: none;
@@ -60,7 +68,7 @@ const PlayerWrapper = styled.div`
   }
 `;
 
-// --- Component Props Interface ---
+
 interface GraphDataPoint {
   t: number;
   value: number;
@@ -73,7 +81,6 @@ interface VideoJSPlayerProps {
   initialSeekPercent?: number;
 }
 
-// --- The React Component ---
 const VideoJSPlayer: React.FC<VideoJSPlayerProps> = ({
   src,
   graphData = [],
@@ -94,15 +101,13 @@ const VideoJSPlayer: React.FC<VideoJSPlayerProps> = ({
     let resizeObserver: ResizeObserver | null = null;
     let resizeHandler: (() => void) | null = null;
 
-    // ✨ React 18 Strict Mode의 이중 렌더링 문제를 회피하기 위해 setTimeout으로 초기화를 지연시킵니다.
     const initTimeout = setTimeout(() => {
       if (!videoRef.current) return;
 
       const player = videojs(videoRef.current, {
         autoplay: true,
         controls: true,
-        responsive: true,
-        fluid: true,
+        fill: true,
         sources: [{ src, type: "application/x-mpegURL" }],
       });
       playerRef.current = player;
@@ -140,17 +145,12 @@ const VideoJSPlayer: React.FC<VideoJSPlayerProps> = ({
 
         const buildChart = () => {
           if (player.isDisposed()) return;
-          const rect = progressHolder.getBoundingClientRect();
-          if (rect.width === 0) return;
-
-          const cs = getComputedStyle(progressHolder);
-          const padL = parseFloat(cs.paddingLeft) || 0;
-          const padR = parseFloat(cs.paddingRight) || 0;
-          const width = progressHolder.clientWidth;
+          // 🎯 [수정 2] 이제 overlay의 clientWidth를 기준으로 너비를 잡습니다.
+          // 이 overlay는 CSS에 의해 너비가 100%로 보장됩니다.
+          const width = overlay.clientWidth;
           if (width === 0) return;
           
-          overlay.style.left = `${padL}px`;
-          overlay.style.right = `${padR}px`;
+          // ❌ 불필요한 계산 제거: getComputedStyle, padding, left/right 설정 코드를 모두 제거하여 코드를 단순화합니다.
 
           canvas.width = width * devicePixelRatio;
           canvas.height = overlay.clientHeight * devicePixelRatio;
@@ -191,6 +191,7 @@ const VideoJSPlayer: React.FC<VideoJSPlayerProps> = ({
         };
 
         const attachInteractions = () => {
+          // ... (기존과 동일)
           const getSeekTime = (e: MouseEvent): number | null => {
             if (player.isDisposed()) return null;
             const rect = hitArea.getBoundingClientRect();
@@ -230,12 +231,15 @@ const VideoJSPlayer: React.FC<VideoJSPlayerProps> = ({
           });
         };
         
+        // 🎯 [수정 3] ResizeObserver가 overlay 자체를 관찰하게 하여 더 직접적으로 대응합니다.
         const ro = new ResizeObserver(buildChart);
-        ro.observe(progressHolder);
+        ro.observe(overlay); // progressHolder 대신 overlay 관찰
         resizeObserver = ro;
         
         const rebuildChartWithRAF = () => requestAnimationFrame(buildChart);
-        player.on(["durationchange", "playerresize", "loadedmetadata"], rebuildChartWithRAF);
+        
+        // 🎯 [수정 4] 'fullscreenchange' 이벤트를 추가합니다.
+        player.on(["durationchange", "playerresize", "loadedmetadata", "fullscreenchange"], rebuildChartWithRAF);
         window.addEventListener("resize", rebuildChartWithRAF);
         resizeHandler = rebuildChartWithRAF;
         
@@ -245,21 +249,23 @@ const VideoJSPlayer: React.FC<VideoJSPlayerProps> = ({
     }, 0);
 
     return () => {
-      clearTimeout(initTimeout);
-      if (resizeHandler) {
-        window.removeEventListener("resize", resizeHandler);
-      }
-      if (resizeObserver) {
-        resizeObserver.disconnect();
-      }
-      if (playerRef.current && !playerRef.current.isDisposed()) {
-        playerRef.current.dispose();
-        playerRef.current = null;
-      }
-      if (chartRef.current) {
-        chartRef.current.destroy();
-        chartRef.current = null;
-      }
+        clearTimeout(initTimeout);
+        if (resizeHandler) {
+          window.removeEventListener("resize", resizeHandler);
+        }
+        if (resizeObserver) {
+          resizeObserver.disconnect();
+        }
+        if (playerRef.current && !playerRef.current.isDisposed()) {
+          // 🎯 [수정 5] player가 null이 아닐 때만 이벤트를 제거하도록 방어 코드를 추가합니다.
+          playerRef.current.off(["durationchange", "playerresize", "loadedmetadata", "fullscreenchange"], resizeHandler!);
+          playerRef.current.dispose();
+          playerRef.current = null;
+        }
+        if (chartRef.current) {
+          chartRef.current.destroy();
+          chartRef.current = null;
+        }
     };
   }, [src, graphData, initialSeekPercent, onTimeUpdate, secondsToLabel]);
 
