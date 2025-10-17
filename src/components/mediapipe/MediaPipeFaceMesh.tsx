@@ -36,7 +36,7 @@ const MediaPipeFaceMesh: React.FC<MediaPipeFaceMeshProps> = ({
 
   const openWebSocket = (id: string) => {
     wsRef.current = new WebSocket(
-      `ws://127.0.0.1:8000/ws/drowsiness/landmarks/${id}`
+      `ws://20.41.114.132:8000/ws/drowsiness/landmarks/${id}`
     );
 
     wsRef.current.onopen = () => {
@@ -133,12 +133,19 @@ const MediaPipeFaceMesh: React.FC<MediaPipeFaceMeshProps> = ({
             if (
               wsRef.current &&
               wsRef.current.readyState === WebSocket.OPEN &&
-              isPairedRef.current
+              isPairedRef.current &&
+              videoRef.current
             ) {
               const formattedLandmarks = landmarks.map(
                 (lm: { x: number; y: number; z: number }) => [lm.x, lm.y, lm.z]
               );
-              wsRef.current.send(JSON.stringify({ frame: formattedLandmarks }));
+              const currentTime = videoRef.current.currentTime;
+              wsRef.current.send(
+                JSON.stringify({
+                  timestamp: currentTime,
+                  frame: formattedLandmarks,
+                })
+              );
               
               // --- 👇 [로그 확인] 데이터를 보낼 때마다 카운터를 1씩 증가시키고 콘솔에 출력 ---
               frameCounter.current += 1;

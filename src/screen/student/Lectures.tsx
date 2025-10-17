@@ -168,6 +168,7 @@ const DrowsinessButton = styled.button`
   border-radius: 5px;
   cursor: pointer;
   margin-right: 1rem;
+  width: 100%;
 
   &:hover {
     background-color: ${(props) => props.theme.hoverBtnColor};
@@ -225,18 +226,61 @@ interface Video {
 }
 
 const dummyDrowsinessData = [
-  { t: 0, value: 0.10 },   // 영상 시작
-  { t: 5, value: 0.12 },
-  { t: 10, value: 0.18 },
-  { t: 15, value: 0.25 },  // 졸음 수치 서서히 상승 시작
-  { t: 22, value: 0.45 },
-  { t: 30, value: 0.60 },
-  { t: 38, value: 0.85 },  // 졸음 수치 최고점 근접
-  { t: 45, value: 0.92 },  // 졸음 수치 최고점
-  { t: 50, value: 0.70 },  // 약간의 정신을 차리며 수치 하락
-  { t: 55, value: 0.55 },
-  { t: 61, value: 0.48 }   // 영상 끝
+  // -- 구간 1: 짧고 약한 스파이크 --
+  { t: 0, value: 1.05 }, // 0~2분 졸음수준
+  { t: 15, value: 1.10 },
+  { t: 30, value: 2.50 }, // 상승
+  { t: 40, value: 3.10 }, // 최고점
+  { t: 55, value: 1.30 }, // 하강
+  { t: 70, value: 1.15 },
+
+  // -- 구간 2: 약간의 텀을 두고 발생하는 중간 강도 스파이크 --
+  { t: 90, value: 1.20 },
+  { t: 110, value: 1.25 },
+  { t: 120, value: 2.90 }, // 2~4분 졸음수준
+  { t: 135, value: 3.85 }, // 최고점
+  { t: 145, value: 3.50 },
+  { t: 160, value: 1.60 }, // 하강
+  { t: 180, value: 1.30 },
+
+  // -- 구간 3: 곧바로 이어지는 강한 스파이크 --
+  { t: 195, value: 1.40 },
+  { t: 210, value: 3.50 }, // 급상승
+  { t: 225, value: 4.20 }, // 최고점
+  { t: 240, value: 3.90 },
+  { t: 255, value: 1.80 }, // 급하강
+  { t: 270, value: 1.45 },
+
+  // -- 구간 4: 길고 완만하게 안정되는 스파이크 --
+  { t: 300, value: 1.40 },
+  { t: 320, value: 1.50 },
+  { t: 340, value: 3.10 }, // 상승
+  { t: 355, value: 3.70 }, // 최고점
+  { t: 370, value: 2.50 },
+  { t: 390, value: 1.80 },
+  { t: 410, value: 1.55 }, // 완만하게 하강
+
+  // -- 구간 5: 짧지만 매우 강한 스파이크 --
+  { t: 440, value: 1.50 },
+  { t: 455, value: 3.90 }, // 급상승
+  { t: 465, value: 4.50 }, // 최고점
+  { t: 480, value: 1.90 }, // 급하강
+  { t: 500, value: 1.60 },
+
+  // -- 구간 6: 마지막 스파이크 후 안정 --
+  { t: 530, value: 1.55 },
+  { t: 550, value: 1.60 },
+  { t: 570, value: 3.20 }, // 상승
+  { t: 585, value: 3.90 }, // 최고점
+  { t: 600, value: 3.00 },
+  { t: 620, value: 1.80 }, // 하강
+  { t: 640, value: 1.65 },
+  { t: 660, value: 1.58 },
+  { t: 671, value: 1.43},
 ];
+
+
+
 
 // --- LectureDetail Component ---
 const Lectures = () => {
@@ -286,7 +330,7 @@ const Lectures = () => {
       setAuthCode(auth_code);
       setIsDetecting(true);
       setDrowsinessMessage(
-        `Wearable device authentication code: ${auth_code}. Please enter this code on your device.`
+        `착용 기기 인증 코드: ${auth_code} — 기기에서 코드를 입력해 페어링을 완료하세요.`
       );
     } catch (error) {
       console.error("Error starting session:", error);
@@ -391,6 +435,7 @@ const Lectures = () => {
       const response = await apiClient.post<{
         s3_link: string;
         watched_percent: number;
+        drowsiness_levels?: number[];
       }>("/students/lecture/video/link", { video_id: videoId });
       console.log(`[fetchHlsLink] API Response for ${videoId}:`, response.data);
       if (response.data?.s3_link) {
