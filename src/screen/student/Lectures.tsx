@@ -250,9 +250,7 @@ const Lectures = () => {
   const [authCode, setAuthCode] = useState<string | null>(null);
   const [isPaired, setIsPaired] = useState<boolean>(false);
   const [isDetecting, setIsDetecting] = useState<boolean>(false);
-  const [drowsinessData, setDrowsinessData] = useState<GraphPoint[] | null>(
-    dummyDrowsinessData
-  );
+  const [drowsinessData, setDrowsinessData] = useState<GraphPoint[] | null>([]);
   const [drowsinessMessage, setDrowsinessMessage] = useState<string | null>(
     "Start the session to begin drowsiness detection."
   );
@@ -368,6 +366,7 @@ const Lectures = () => {
     setIsPaired(false);
     const dbRef = ref(db, `${sessionId}/pairing/paired`);
 
+
     const listener = onValue(dbRef, (snapshot) => {
       if (snapshot.val() === true) {
         setIsPaired(true);
@@ -384,6 +383,7 @@ const Lectures = () => {
         });
       }
     });
+
 
     return () => {
       off(dbRef, "value", listener);
@@ -420,6 +420,8 @@ const Lectures = () => {
       const s3 = response.data?.s3_link;
       const watched = response.data?.watched_percent ?? 0;
       const levels = response.data?.drowsiness_levels ?? [];
+
+      console.log(levels)
 
       if (!s3) throw new Error("비디오 링크를 가져올 수 없습니다.");
 

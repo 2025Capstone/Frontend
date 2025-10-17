@@ -1,5 +1,5 @@
 // src/components/video/VideoJSPlayer.tsx
-import React, { useRef, useEffect, useCallback } from "react";
+import React, { useRef, useEffect, useCallback, useMemo } from "react";
 import styled from "styled-components";
 import videojs from "video.js";
 import "video.js/dist/video-js.css";
@@ -78,8 +78,8 @@ const PlayerWrapper = styled.div`
 `;
 
 interface GraphDataPoint {
-  t: number;
-  value: number;
+  t: number | string;
+  value: number | string | { t: number | string; value: number | string };
 }
 
 interface VideoJSPlayerProps {
@@ -105,6 +105,68 @@ const VideoJSPlayer: React.FC<VideoJSPlayerProps> = ({
   const playerRef = useRef<Player | null>(null);
   const chartRef = useRef<ChartType<"line", { x: number; y: number }[]> | null>(null);
 
+  // 1) 서버 데이터 평탄화: 변화 시점 목록으로 정리 (x: 초, y: 값)
+  //    value가 객체면 그 안의 {t, value}를 사용
+  const baseChangePoints = useMemo(() => {
+    const flattened = (graphData ?? [])
+      .map((d) => {
+        if (d && typeof d.value === "object" && d.value !== null && "t" in (d.value as any) && "value" in (d.value as any)) {
+          const inner = d.value as any;
+          return { x: Number(inner.t) || 0, y: Number(inner.value) || 0 };
+        }
+        return { x: Number((d as any).t) || 0, y: Number((d as any).value) || 0 };
+      })
+      .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+
+    // 동일 t 중복 제거(뒤에 나온 값 우선) + 정렬
+    const byT = new Map<number, number>();
+    for (const p of flattened) byT.set(p.x, p.y);
+    const sorted = Array.from(byT.entries())
+      .map(([x, y]) => ({ x, y }))
+      .sort((a, b) => a.x - b.x);
+
+    // 최소 하나는 있어야 함
+    if (sorted.length === 0) sorted.push({ x: 0, y: 0 });
+
+    // 0초 포인트 보장(없다면 앞에 동일 값으로 추가)
+    if (sorted[0].x > 0) {
+      sorted.unshift({ x: 0, y: sorted[0].y });
+    }
+
+    return sorted;
+  }, [graphData]);
+
+  // 2) 요구사항: 첫 변화(0초)는 그대로, 그 이후 변화점은 모두 +1s (2:00 → 2:01)
+  const changePoints = useMemo(() => {
+    const offsetSec = 1; // [offset 1s] 2분 0초 대신 2분 1초부터 새 값 적용
+    const out: { x: number; y: number }[] = [];
+    for (let i = 0; i < baseChangePoints.length; i++) {
+      const p = baseChangePoints[i];
+      if (i === 0) out.push({ x: p.x, y: p.y }); // 첫 포인트는 그대로 (보통 0초)
+      else out.push({ x: p.x + offsetSec, y: p.y }); // 이후는 +1초
+    }
+    // 다시 시간 정렬 및 중복 제거
+    const byT = new Map<number, number>();
+    for (const p of out) byT.set(p.x, p.y);
+    return Array.from(byT.entries())
+      .map(([x, y]) => ({ x, y }))
+      .sort((a, b) => a.x - b.x);
+  }, [baseChangePoints]);
+
+  // 3) 어떤 시각에서의 "의미 값"(구간 상수)을 반환 (툴팁/라벨용)
+  const valueAt = useCallback(
+    (timeSec: number): number => {
+      if (!changePoints.length) return 0;
+      let best = changePoints[0].y;
+      for (let i = 0; i < changePoints.length; i++) {
+        if (changePoints[i].x <= timeSec) best = changePoints[i].y;
+        else break;
+      }
+      return best;
+    },
+    [changePoints]
+  );
+
   const secondsToLabel = useCallback((sec: number): string => {
     const m = Math.floor(sec / 60);
     const s = Math.floor(sec % 60).toString().padStart(2, "0");
@@ -128,7 +190,7 @@ const VideoJSPlayer: React.FC<VideoJSPlayerProps> = ({
         controls: true,
         fill: true,
         sources: [{ src, type: "application/x-mpegURL" }],
-        userActions: { hotkeys: false }, // 전역 핫키 방지
+        userActions: { hotkeys: false },
       });
       playerRef.current = player;
 
@@ -149,7 +211,6 @@ const VideoJSPlayer: React.FC<VideoJSPlayerProps> = ({
         pauseHandler = () => {
           const dur = player.duration() || 0;
           const t = player.currentTime() || 0;
-          // ▶️ 끝에 가까우면 재생 강제 X (interrupted 스팸 방지)
           if (player.ended() || (dur > 0 && t >= dur - 0.35)) return;
           safePlay();
         };
@@ -184,10 +245,8 @@ const VideoJSPlayer: React.FC<VideoJSPlayerProps> = ({
         window.addEventListener("keydown", keydownHandler, true);
       }
 
-      // ▶️ 영상 종료 감지 (종료 시 자동 재생 유발 금지)
-      endedHandler = () => {
-        onEnded?.();
-      };
+      // ▶️ 영상 종료 감지
+      endedHandler = () => { onEnded?.(); };
       player.on("ended", endedHandler);
 
       player.one("loadedmetadata", () => {
@@ -230,23 +289,70 @@ const VideoJSPlayer: React.FC<VideoJSPlayerProps> = ({
 
           if (chartRef.current) chartRef.current.destroy();
 
-          const duration =
-            player.duration() || Math.max(...graphData.map((d) => d.t), 0);
-          const points = graphData.map((d) => ({ x: d.t, y: d.value }));
+          const duration = player.duration() || Math.max(...changePoints.map((d) => d.x), 0);
 
+          // --- 스무딩된 시리즈 만들기 ---
+          // 변화 시점 tc에서 w초 동안(old -> new) 부드럽게 전이
+          const base = changePoints.slice();
+          const lastY = base[base.length - 1]?.y ?? 0;
+
+          // 스무딩 윈도우 (기본 2초, 영상의 5%를 넘지 않게)
+          const w = Math.min(2, Math.max(0.2, (duration || 0) * 0.05));
+          const half = w / 2;
+
+          const series: { x: number; y: number }[] = [];
+          // 시작값 고정
+          series.push({ x: 0, y: base[0].y });
+
+          for (let i = 0; i < base.length - 1; i++) {
+            const cur = base[i];
+            const next = base[i + 1];
+            const tc = next.x; // 이미 +1초 보정된 변화 중심 시각
+
+            // 현재 구간의 마지막 고정 구간값 지점 (tc - half)
+            const left = Math.max(cur.x, tc - half, 0);
+            if (left > series[series.length - 1].x) {
+              series.push({ x: left, y: cur.y });
+            }
+
+            // 전이 구간 끝점 (tc + half)에서 새 값
+            const right = Math.min(tc + half, duration);
+            if (right > left) {
+              series.push({ x: right, y: next.y });
+            } else {
+              // duration이 매우 짧아서 right<=left가 될 수 있는 극단 케이스
+              series.push({ x: tc, y: next.y });
+            }
+          }
+
+          // 마지막 구간을 영상 끝까지 유지
+          if (duration > (series[series.length - 1]?.x ?? 0)) {
+            series.push({ x: duration, y: lastY });
+          }
+
+          // y축 범위 자동화 (+여유 10%)
+          const ys = series.map((p) => p.y);
+          const minY = Math.min(...ys);
+          const maxY = Math.max(...ys);
+          const pad = (maxY - minY) * 0.1 || 0.1; // 값이 모두 같아도 최소 여유
+          const yMin = minY - pad;
+          const yMax = maxY + pad;
+
+          // 차트 생성 (부드러운 곡선)
           chartRef.current = new Chart(canvas, {
             type: "line",
             data: {
               datasets: [
                 {
                   label: "Drowsiness Level",
-                  data: points,
+                  data: series,
                   fill: true,
-                  tension: 0.25,
+                  tension: 0.2,                 // 부드럽게
                   pointRadius: 0,
                   borderWidth: 1,
                   borderColor: "rgba(255, 255, 255, 0.9)",
                   backgroundColor: "rgba(180, 200, 255, 0.35)",
+                  parsing: { xAxisKey: "x", yAxisKey: "y" },
                 },
               ],
             },
@@ -259,12 +365,16 @@ const VideoJSPlayer: React.FC<VideoJSPlayerProps> = ({
               scales: {
                 x: {
                   type: "linear",
-                  min: 1,
-                  max: duration,
+                  min: 0,
+                  max: duration,                 // 전체 영상 길이까지
                   grid: { display: false },
                   ticks: { display: false },
                 },
-                y: { min: 1, max: 5, display: false, beginAtZero: true },
+                y: {
+                  min: 1,                     // 데이터 기반 최소
+                  max: 5,                     // 데이터 기반 최대(+여유)
+                  display: false,
+                },
               },
             },
           });
@@ -289,28 +399,19 @@ const VideoJSPlayer: React.FC<VideoJSPlayerProps> = ({
             const rect = hitArea.getBoundingClientRect();
             const x = e.clientX - rect.left;
 
-            let nearest = graphData.length > 0 ? graphData[0] : null;
-            if (nearest) {
-              let minDiff = Infinity;
-              for (const d of graphData) {
-                const diff = Math.abs(d.t - time);
-                if (diff < minDiff) {
-                  minDiff = diff;
-                  nearest = d;
-                }
-              }
-            }
-
             tooltip.style.left = `${x}px`;
             tooltip.style.display = "block";
-            tooltip.textContent = `${secondsToLabel(time)} · ${(
-              nearest?.value ?? 0
-            ).toFixed(2)}`;
+
+            // 구간 상수 의미를 살린 값 표시(스무딩과 무관)
+            const val = valueAt(time);
+            const safeVal = Number.isFinite(val) ? val : 0;
+            tooltip.textContent = `${secondsToLabel(time)} · ${safeVal.toFixed(2)}`;
           });
 
           hitArea.addEventListener("mouseleave", () => {
             tooltip.style.display = "none";
           });
+
           hitArea.addEventListener("click", (e) => {
             const time = getSeekTime(e);
             if (time !== null) player.currentTime(time);
@@ -353,7 +454,8 @@ const VideoJSPlayer: React.FC<VideoJSPlayerProps> = ({
         chartRef.current = null;
       }
     };
-  }, [src, graphData, initialSeekPercent, onTimeUpdate, secondsToLabel, restrictInteract, onEnded]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src, changePoints, initialSeekPercent, onTimeUpdate, secondsToLabel, restrictInteract, onEnded]);
 
   return (
     <PlayerWrapper>

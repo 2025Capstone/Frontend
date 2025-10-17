@@ -1,6 +1,7 @@
+import { off, onValue, ref } from "firebase/database";
 import React, { useRef, useEffect } from "react";
+import { db } from "../../firebase";
 
-// --- TypeScript 타입 선언 ---
 declare global {
   interface Window {
     FaceMesh: any;
@@ -23,11 +24,8 @@ const MediaPipeFaceMesh: React.FC<MediaPipeFaceMeshProps> = ({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  
-  // --- 👇 [로그 확인용] 프레임 카운터를 위한 useRef 추가 ---
-  const frameCounter = useRef(0);
 
-  // isPaired prop의 최신 값을 추적하기 위한 ref
+  const frameCounter = useRef(0);
   const isPairedRef = useRef(isPaired);
   useEffect(() => {
     isPairedRef.current = isPaired;
@@ -35,13 +33,14 @@ const MediaPipeFaceMesh: React.FC<MediaPipeFaceMeshProps> = ({
   }, [isPaired]);
 
   const openWebSocket = (id: string) => {
+    // [수정] HTTPS 페이지에서 접속 시 혼합콘텐츠 오류 방지: wss 사용 권장
+
     wsRef.current = new WebSocket(
-      `ws://20.41.114.132:8000/ws/drowsiness/landmarks/${id}`
+      `ws://20.41.114.132:8000/ws/drowsiness/landmarks/${id}` // [수정]
     );
 
     wsRef.current.onopen = () => {
       console.log("WebSocket connected");
-      // 웹소켓이 새로 연결될 때마다 카운터 초기화
       frameCounter.current = 0;
     };
 
@@ -55,6 +54,7 @@ const MediaPipeFaceMesh: React.FC<MediaPipeFaceMeshProps> = ({
     };
   };
 
+  // sessionId 바뀌면 WS 연결을 보장
   useEffect(() => {
     if (sessionId) {
       if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED) {
@@ -146,10 +146,11 @@ const MediaPipeFaceMesh: React.FC<MediaPipeFaceMeshProps> = ({
                   frame: formattedLandmarks,
                 })
               );
-              
-              // --- 👇 [로그 확인] 데이터를 보낼 때마다 카운터를 1씩 증가시키고 콘솔에 출력 ---
               frameCounter.current += 1;
-              console.log(`[WebSocket] Landmark frame sent: #${frameCounter.current}`);
+              // 너무 시끄러우면 주석 처리 가능
+              console.log(
+                `[WebSocket] Landmark frame sent: #${frameCounter.current}`
+              );
             }
           });
         }
@@ -181,7 +182,34 @@ const MediaPipeFaceMesh: React.FC<MediaPipeFaceMeshProps> = ({
 
     initializeMediaPipe();
 
+    // ----------------- Firebase stop 시그널 리스너 -----------------
+    // [수정] sessionId 없으면 리스너를 만들지 않음
+    if (!sessionId) {
+      console.warn("[MediaPipeFaceMesh] No sessionId; skipping stop listener.");
+      return;
+    }
+
+    // [수정] 서버에서 올리는 키와 일치시키기: '/pairing/stop'
+    const dbRefStop = ref(db, `${sessionId}/pairing/stop`); // [수정: stopped -> stop]
+
+    // [수정] onValue가 반환하는 것은 '구독 해제 함수' 입니다.
+    const unsubscribe = onValue(dbRefStop, (snapshot) => {
+      const val = snapshot.val();
+      console.log("[Firebase] pairing/stop =", val); // [수정] 디버그 로그
+      if (val === true) {
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          console.log("[MediaPipeFaceMesh] stop signal received → closing WS"); // [수정]
+          wsRef.current.close();
+        }
+        // 필요하다면 여기서 카메라도 멈추고 싶을 수 있음:
+        // (videoRef.current?.srcObject as MediaStream)?.getTracks().forEach(t => t.stop());
+      }
+    });
+
     return () => {
+      // [수정] 구독 해제 함수를 직접 호출
+      unsubscribe(); // [수정]
+      // (off를 쓰고 싶다면, 콜백 함수를 별도 변수로 두고 동일 콜백으로 off 호출)
       if (wsRef.current) {
         wsRef.current.close();
       }
@@ -191,7 +219,8 @@ const MediaPipeFaceMesh: React.FC<MediaPipeFaceMeshProps> = ({
           .forEach((track) => track.stop());
       }
     };
-  }, []);
+    // [수정] sessionId가 바뀌면 stop 리스너도 재바인딩
+  }, [sessionId]); // [수정]
 
   return (
     <div>
