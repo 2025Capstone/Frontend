@@ -68,8 +68,14 @@ const PlayerWrapper = styled.div`
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
     z-index: 11;
   }
-`;
 
+  /* 🔒 상호작용 제한 모드 - 진행바/재생버튼 클릭 비활성화 */
+  .vjs-restrict .vjs-progress-control,
+  .vjs-restrict .vjs-play-control {
+    pointer-events: none !important;
+    opacity: 0.7;
+  }
+`;
 
 interface GraphDataPoint {
   t: number;
@@ -81,6 +87,10 @@ interface VideoJSPlayerProps {
   graphData?: GraphDataPoint[];
   onTimeUpdate?: (time: number, duration: number) => void;
   initialSeekPercent?: number;
+  /** 처음 시청 중에는 일시정지/되감기/앞으로 감기 금지 */
+  restrictInteract?: boolean;
+  /** 🎯 영상이 끝났을 때 호출 (부모에서 finish API 등 처리) */
+  onEnded?: () => void;
 }
 
 const VideoJSPlayer: React.FC<VideoJSPlayerProps> = ({
@@ -88,6 +98,8 @@ const VideoJSPlayer: React.FC<VideoJSPlayerProps> = ({
   graphData = [],
   onTimeUpdate,
   initialSeekPercent = 0,
+  restrictInteract = false,
+  onEnded,
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const playerRef = useRef<Player | null>(null);
@@ -102,6 +114,11 @@ const VideoJSPlayer: React.FC<VideoJSPlayerProps> = ({
   useEffect(() => {
     let resizeObserver: ResizeObserver | null = null;
     let resizeHandler: (() => void) | null = null;
+    let keydownHandler: ((e: KeyboardEvent) => void) | null = null;
+    let pauseHandler: (() => void) | null = null;
+    let seekingHandler: (() => void) | null = null;
+    let timeupdateHandler: (() => void) | null = null;
+    let endedHandler: (() => void) | null = null;
 
     const initTimeout = setTimeout(() => {
       if (!videoRef.current) return;
@@ -111,14 +128,67 @@ const VideoJSPlayer: React.FC<VideoJSPlayerProps> = ({
         controls: true,
         fill: true,
         sources: [{ src, type: "application/x-mpegURL" }],
+        userActions: { hotkeys: false }, // 전역 핫키 방지
       });
       playerRef.current = player;
 
-      if (onTimeUpdate) {
-        player.on("timeupdate", () => {
-          onTimeUpdate(player.currentTime() ?? 0, player.duration() ?? 0);
-        });
+      // 🔒 상호작용 제한 모드 표시
+      if (restrictInteract) player.addClass("vjs-restrict");
+      else player.removeClass("vjs-restrict");
+
+      // 안전한 play 호출
+      const safePlay = () => {
+        const maybe = player.play?.();
+        if (maybe && typeof (maybe as any).catch === "function") {
+          (maybe as Promise<any>).catch(() => {});
+        }
+      };
+
+      // 일시정지 무력화 (단, 종료 직전/종료 시는 예외)
+      if (restrictInteract) {
+        pauseHandler = () => {
+          const dur = player.duration() || 0;
+          const t = player.currentTime() || 0;
+          // ▶️ 끝에 가까우면 재생 강제 X (interrupted 스팸 방지)
+          if (player.ended() || (dur > 0 && t >= dur - 0.35)) return;
+          safePlay();
+        };
+        player.on("pause", pauseHandler);
       }
+
+      if (onTimeUpdate) {
+        timeupdateHandler = () => {
+          onTimeUpdate(player.currentTime() ?? 0, player.duration() ?? 0);
+        };
+        player.on("timeupdate", timeupdateHandler);
+      }
+
+      // seeking 방지
+      let lastTime = 0;
+      const saveTime = () => { lastTime = player.currentTime() ?? lastTime; };
+      player.on("timeupdate", saveTime);
+      if (restrictInteract) {
+        seekingHandler = () => {
+          const now = player.currentTime() ?? 0;
+          if (Math.abs(now - lastTime) > 1) player.currentTime(lastTime);
+        };
+        player.on("seeking", seekingHandler);
+      }
+
+      // 키보드 탐색/일시정지 차단
+      if (restrictInteract) {
+        keydownHandler = (e: KeyboardEvent) => {
+          const block = [" ", "k", "j", "l", "ArrowLeft", "ArrowRight"];
+          if (block.includes(e.key)) { e.preventDefault(); e.stopPropagation(); }
+        };
+        window.addEventListener("keydown", keydownHandler, true);
+      }
+
+      // ▶️ 영상 종료 감지 (종료 시 자동 재생 유발 금지)
+      endedHandler = () => {
+        onEnded?.();
+      };
+      player.on("ended", endedHandler);
 
       player.one("loadedmetadata", () => {
         const duration = player.duration();
@@ -127,10 +197,13 @@ const VideoJSPlayer: React.FC<VideoJSPlayerProps> = ({
         }
       });
 
+      // ===== 그래프 오버레이 렌더링 =====
       player.ready(() => {
         if (player.isDisposed() || player.el().querySelector(".graph-overlay")) return;
-        
-        const progressHolder = player.el().querySelector<HTMLElement>(".vjs-progress-holder");
+
+        const progressHolder = player
+          .el()
+          .querySelector<HTMLElement>(".vjs-progress-holder");
         if (!progressHolder) return;
         progressHolder.style.position = "relative";
 
@@ -147,8 +220,6 @@ const VideoJSPlayer: React.FC<VideoJSPlayerProps> = ({
 
         const buildChart = () => {
           if (player.isDisposed()) return;
-          // 🎯 [수정 2] 이제 overlay의 clientWidth를 기준으로 너비를 잡습니다.
-          // 이 overlay는 CSS에 의해 너비가 100%로 보장됩니다.
           const width = overlay.clientWidth;
           if (width === 0) return;
 
@@ -159,22 +230,25 @@ const VideoJSPlayer: React.FC<VideoJSPlayerProps> = ({
 
           if (chartRef.current) chartRef.current.destroy();
 
-          const duration = player.duration() || Math.max(...graphData.map((d) => d.t), 0);
+          const duration =
+            player.duration() || Math.max(...graphData.map((d) => d.t), 0);
           const points = graphData.map((d) => ({ x: d.t, y: d.value }));
 
           chartRef.current = new Chart(canvas, {
             type: "line",
             data: {
-              datasets: [{
-                label: "Drowsiness Level",
-                data: points,
-                fill: true,
-                tension: 0.25,
-                pointRadius: 0,
-                borderWidth: 1,
-                borderColor: "rgba(255, 255, 255, 0.9)",
-                backgroundColor: "rgba(180, 200, 255, 0.35)",
-              }],
+              datasets: [
+                {
+                  label: "Drowsiness Level",
+                  data: points,
+                  fill: true,
+                  tension: 0.25,
+                  pointRadius: 0,
+                  borderWidth: 1,
+                  borderColor: "rgba(255, 255, 255, 0.9)",
+                  backgroundColor: "rgba(180, 200, 255, 0.35)",
+                },
+              ],
             },
             options: {
               animation: false,
@@ -197,7 +271,9 @@ const VideoJSPlayer: React.FC<VideoJSPlayerProps> = ({
         };
 
         const attachInteractions = () => {
-          // ... (기존과 동일)
+          // 처음 시청 제한 모드면 그래프 클릭 탐색도 차단
+          if (restrictInteract) return;
+
           const getSeekTime = (e: MouseEvent): number | null => {
             if (player.isDisposed()) return null;
             const rect = hitArea.getBoundingClientRect();
@@ -209,7 +285,7 @@ const VideoJSPlayer: React.FC<VideoJSPlayerProps> = ({
           hitArea.addEventListener("mousemove", (e) => {
             const time = getSeekTime(e);
             if (time === null) return;
-            
+
             const rect = hitArea.getBoundingClientRect();
             const x = e.clientX - rect.left;
 
@@ -227,53 +303,57 @@ const VideoJSPlayer: React.FC<VideoJSPlayerProps> = ({
 
             tooltip.style.left = `${x}px`;
             tooltip.style.display = "block";
-            tooltip.textContent = `${secondsToLabel(time)} · ${(nearest?.value ?? 0).toFixed(2)}`;
+            tooltip.textContent = `${secondsToLabel(time)} · ${(
+              nearest?.value ?? 0
+            ).toFixed(2)}`;
           });
 
-          hitArea.addEventListener("mouseleave", () => { tooltip.style.display = "none"; });
+          hitArea.addEventListener("mouseleave", () => {
+            tooltip.style.display = "none";
+          });
           hitArea.addEventListener("click", (e) => {
             const time = getSeekTime(e);
             if (time !== null) player.currentTime(time);
           });
         };
-        
-        // 🎯 [수정 3] ResizeObserver가 overlay 자체를 관찰하게 하여 더 직접적으로 대응합니다.
+
         const ro = new ResizeObserver(buildChart);
-        ro.observe(overlay); // progressHolder 대신 overlay 관찰
+        ro.observe(overlay);
         resizeObserver = ro;
-        
+
         const rebuildChartWithRAF = () => requestAnimationFrame(buildChart);
-        
-        // 🎯 [수정 4] 'fullscreenchange' 이벤트를 추가합니다.
-        player.on(["durationchange", "playerresize", "loadedmetadata", "fullscreenchange"], rebuildChartWithRAF);
+
+        player.on(
+          ["durationchange", "playerresize", "loadedmetadata", "fullscreenchange"],
+          rebuildChartWithRAF
+        );
         window.addEventListener("resize", rebuildChartWithRAF);
         resizeHandler = rebuildChartWithRAF;
-        
+
         attachInteractions();
         buildChart();
       });
     }, 0);
 
     return () => {
-        clearTimeout(initTimeout);
-        if (resizeHandler) {
-          window.removeEventListener("resize", resizeHandler);
-        }
-        if (resizeObserver) {
-          resizeObserver.disconnect();
-        }
-        if (playerRef.current && !playerRef.current.isDisposed()) {
-          // 🎯 [수정 5] player가 null이 아닐 때만 이벤트를 제거하도록 방어 코드를 추가합니다.
-          playerRef.current.off(["durationchange", "playerresize", "loadedmetadata", "fullscreenchange"], resizeHandler!);
-          playerRef.current.dispose();
-          playerRef.current = null;
-        }
-        if (chartRef.current) {
-          chartRef.current.destroy();
-          chartRef.current = null;
-        }
+      clearTimeout(initTimeout);
+      if (keydownHandler) window.removeEventListener("keydown", keydownHandler, true);
+      if (resizeHandler) window.removeEventListener("resize", resizeHandler);
+      if (resizeObserver) resizeObserver.disconnect();
+      if (playerRef.current && !playerRef.current.isDisposed()) {
+        if (pauseHandler) playerRef.current.off("pause", pauseHandler);
+        if (seekingHandler) playerRef.current.off("seeking", seekingHandler);
+        if (timeupdateHandler) playerRef.current.off("timeupdate", timeupdateHandler);
+        if (endedHandler) playerRef.current.off("ended", endedHandler);
+        playerRef.current.dispose();
+        playerRef.current = null;
+      }
+      if (chartRef.current) {
+        chartRef.current.destroy();
+        chartRef.current = null;
+      }
     };
-  }, [src, graphData, initialSeekPercent, onTimeUpdate, secondsToLabel]);
+  }, [src, graphData, initialSeekPercent, onTimeUpdate, secondsToLabel, restrictInteract, onEnded]);
 
   return (
     <PlayerWrapper>
