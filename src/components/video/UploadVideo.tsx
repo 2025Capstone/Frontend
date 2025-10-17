@@ -37,7 +37,7 @@ const UploadVideo: React.FC = () => {
     formData.append("title", title);
 
     try {
-      const response = await axios.post("http://localhost:8000/api/v1/videos/upload/", formData, {
+      const response = await axios.post("http://20.41.114.132:8000/api/v1/videos/upload/", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },

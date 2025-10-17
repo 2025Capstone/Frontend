@@ -3,7 +3,7 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { useAuthStore } from "../authStore"; // Zustand 스토어 import 경로 확인
 
 const apiClient = axios.create({
-  baseURL: "http://127.0.0.1:8000/api/v1",
+  baseURL: "http://20.41.114.132:8000/api/v1",
   headers: {
     "Content-Type": "application/json",
     accept: "application/json",

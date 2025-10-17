@@ -241,7 +241,7 @@ export default function Login() {
     try {
       // 1. Get User Role
       const roleResponse = await fetch(
-        "http://127.0.0.1:8000/api/v1/auth/user-role",
+        "http://20.41.114.132:8000/api/v1/auth/user-role",
         {
           method: "POST",
           headers: {
@@ -285,7 +285,7 @@ export default function Login() {
 
           // Verify Token with Backend
           const verifyResponse = await fetch(
-            "http://127.0.0.1:8000/api/v1/auth/verify-token",
+            "http://20.41.114.132:8000/api/v1/auth/verify-token",
             {
               method: "POST",
               headers: {
@@ -325,7 +325,7 @@ export default function Login() {
         case "instructor":
           console.log("Attempting Instructor Login via API...");
           const instructorLoginResponse = await fetch(
-            "http://127.0.0.1:8000/api/v1/instructors-auth/login",
+            "http://20.41.114.132:8000/api/v1/instructors-auth/login",
             {
               method: "POST",
               headers: {
@@ -373,7 +373,7 @@ export default function Login() {
         case "admin":
           console.log("Attempting Admin Login via API...");
           const adminLoginResponse = await fetch(
-            "http://127.0.0.1:8000/api/v1/auth/admin-login",
+            "http://20.41.114.132:8000/api/v1/auth/admin-login",
             {
               method: "POST",
               headers: {

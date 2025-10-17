@@ -1,3 +1,4 @@
+// src/components/video/VideoJSPlayer.tsx
 import React, { useRef, useEffect, useCallback } from "react";
 import styled from "styled-components";
 import videojs from "video.js";
@@ -9,7 +10,7 @@ import type Player from "video.js/dist/types/player";
 
 Chart.register(...registerables);
 
-// --- Styled Components (기존과 동일) ---
+// --- Styled Components ---
 const PlayerWrapper = styled.div`
   position: relative;
   width: 100%;
@@ -36,10 +37,11 @@ const PlayerWrapper = styled.div`
   .video-js .vjs-remaining-time { display: none; }
   .video-js .vjs-progress-control:hover .vjs-time-tooltip { display: none !important; }
 
+  /* 그래프 오버레이 */
   .graph-overlay {
     position: absolute;
-    left: 0;
-    /* 🎯 [수정 1] 너비를 100%로 설정하여 항상 부모 요소를 꽉 채우도록 합니다. */
+    left: 0px;
+    right: 0px;
     width: 100%;
     bottom: 100%;
     height: 60px;
@@ -149,13 +151,11 @@ const VideoJSPlayer: React.FC<VideoJSPlayerProps> = ({
           // 이 overlay는 CSS에 의해 너비가 100%로 보장됩니다.
           const width = overlay.clientWidth;
           if (width === 0) return;
-          
-          // ❌ 불필요한 계산 제거: getComputedStyle, padding, left/right 설정 코드를 모두 제거하여 코드를 단순화합니다.
 
           canvas.width = width * devicePixelRatio;
           canvas.height = overlay.clientHeight * devicePixelRatio;
-          canvas.style.width = `${width}px`;
-          canvas.style.height = `${overlay.clientHeight}px`;
+          canvas.style.width = `100%`;
+          canvas.style.height = `100%`;
 
           if (chartRef.current) chartRef.current.destroy();
 
@@ -183,8 +183,14 @@ const VideoJSPlayer: React.FC<VideoJSPlayerProps> = ({
               layout: { padding: 0 },
               plugins: { legend: { display: false }, tooltip: { enabled: false } },
               scales: {
-                x: { type: "linear", min: 0, max: duration, grid: { display: false }, ticks: { display: false } },
-                y: { display: false, beginAtZero: true },
+                x: {
+                  type: "linear",
+                  min: 1,
+                  max: duration,
+                  grid: { display: false },
+                  ticks: { display: false },
+                },
+                y: { min: 1, max: 5, display: false, beginAtZero: true },
               },
             },
           });
